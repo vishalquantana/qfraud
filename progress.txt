@@ -35,6 +35,7 @@
 - Financial ratio analysis: `src/services/analysis-financial-ratios.ts` — `analyzeFinancialRatios(submissionId)` runs DSO, A/R ratio, profit margin, and contents-to-building ratio checks with category RATIO
 - Contents-to-building ratio ranges by occupancy: retail 20-40%, manufacturing 30-60%, office 10-30%, warehouse 15-50%, restaurant 20-45%; use `classifyOccupancy()` to map freeform occupancy strings
 - Risk scoring: `src/services/scoring-engine.ts` — `calculateRiskScore(submissionId)` aggregates non-overridden FraudIndicators, returns ScoreBreakdown with totalScore, severity, and per-category points
+- Routing engine: `src/services/routing-engine.ts` — `routeSubmission(submissionId)` uses ThresholdConfig (per-LOB → global → defaults) to auto-approve, escalate, refer to SIU, or assign standard review; creates AuditLog for each decision
 ---
 
 ## 2026-02-15 - US-009
@@ -337,4 +338,19 @@
   - Only non-overridden indicators (isOverridden: false) are included in the score — overridden false-positives don't count
   - Score breakdown tracks both counts and points per FraudIndicatorCategory — useful for the UI bar chart in US-035
   - Function returns a ScoreBreakdown object with totalScore, severity, categoryCounts, categoryPoints, and indicatorCounts for downstream use
+---
+
+## 2026-02-15 - US-021
+- What was implemented: Auto-routing service that routes submissions based on risk score and tenant threshold configuration
+- Files changed:
+  - src/services/routing-engine.ts (new: routeSubmission function with 4 routing paths: auto-approve, escalate to senior UW, refer to SIU, standard UW review)
+  - prd.json (marked US-021 as passes: true)
+- **Learnings for future iterations:**
+  - Routing priority order matters: SIU referral (forged docs) > auto-approve (low risk) > escalate (high risk) > default review
+  - ThresholdConfig lookup uses cascading: per-LOB override → global (lineOfBusiness=null) → hardcoded defaults
+  - SIU referral checks for FORENSIC category + CRITICAL severity as the "forged/fabricated document" signal
+  - Auto-approve requires BOTH score below threshold AND no MEDIUM+ indicators — not just score alone
+  - Escalation assigns to SENIOR_UNDERWRITER; default review assigns to any UNDERWRITER or SENIOR_UNDERWRITER
+  - SIU referral auto-creates an SIUCase record with OPEN status assigned to an SIU_INVESTIGATOR
+  - All routing decisions create AuditLog entries with action, reason, and assigned user info
 ---
