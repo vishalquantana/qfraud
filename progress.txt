@@ -50,3 +50,16 @@
   - Use `@@map("tablename")` on models to control the actual PostgreSQL table names
   - Seed script uses upsert for idempotency (safe to run multiple times)
 ---
+
+## 2026-02-15 - US-003
+- What was implemented: Database schema for submissions and documents with full enum types and relations
+- Files changed:
+  - prisma/schema.prisma (added SubmissionStatus, Severity, Channel, DocumentType, DocumentStatus enums; added Submission and Document models with relations and indexes; added relation fields to Tenant and User)
+  - prisma/migrations/20260215000001_add_submissions_and_documents/migration.sql (incremental SQL migration)
+  - prd.json (marked US-003 as passes: true)
+- **Learnings for future iterations:**
+  - Prisma 7 `migrate diff --from-migrations` requires a shadow database; use `--from-empty --to-schema` and manually extract incremental SQL for offline migration generation
+  - Named relations (e.g., `@relation("Submitter")`) are required when a model has multiple relations to the same target model
+  - Use `@@index` for columns frequently used in WHERE/ORDER BY clauses (tenantId, status, createdAt, submissionId)
+  - DocumentType enum has 17 values covering all insurance document types including UNKNOWN as default
+---

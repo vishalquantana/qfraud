@@ -24,6 +24,57 @@ enum Role {
   BROKER
 }
 
+enum SubmissionStatus {
+  PROCESSING
+  UNDER_REVIEW
+  APPROVED
+  DECLINED
+  INFO_NEEDED
+  REFERRED_TO_SIU
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  CLEAN
+}
+
+enum Channel {
+  PORTAL
+  EMAIL
+  API
+}
+
+enum DocumentType {
+  ACORD_125
+  ACORD_130
+  ACORD_140
+  LOSS_RUN
+  FINANCIAL_STATEMENT
+  COI
+  ENTITY_DOC
+  INSPECTION_PHOTO
+  MVR
+  SOV
+  SURPLUS_LINES
+  PROFESSIONAL_LICENSE
+  ENVIRONMENTAL_REPORT
+  PAYROLL_TAX
+  BROKER_SUBMISSION
+  FLEET_SCHEDULE
+  UNKNOWN
+}
+
+enum DocumentStatus {
+  UPLOADED
+  CLASSIFYING
+  EXTRACTING
+  ANALYZED
+  ERROR
+}
+
 // ─── Tenant ──────────────────────────────────────────────
 
 model Tenant {
@@ -37,7 +88,9 @@ model Tenant {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  users User[]
+  users       User[]
+  submissions Submission[]
+  documents   Document[]
 
   @@map("tenants")
 }
@@ -55,9 +108,64 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant               Tenant       @relation(fields: [tenantId], references: [id])
+  submittedSubmissions Submission[] @relation("Submitter")
+  assignedSubmissions  Submission[] @relation("AssignedUnderwriter")
 
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("users")
+}
+
+// ─── Submission ────────────────────────────────────────────
+
+model Submission {
+  id                    String           @id @default(cuid())
+  tenantId              String
+  submitterId           String
+  insuredName           String
+  lineOfBusiness        String?
+  status                SubmissionStatus @default(PROCESSING)
+  riskScore             Int?
+  severity              Severity?
+  channel               Channel          @default(PORTAL)
+  assignedUnderwriterId String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+  submitter           User     @relation("Submitter", fields: [submitterId], references: [id])
+  assignedUnderwriter User?    @relation("AssignedUnderwriter", fields: [assignedUnderwriterId], references: [id])
+  documents           Document[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("submissions")
+}
+
+// ─── Document ──────────────────────────────────────────────
+
+model Document {
+  id                       String        @id @default(cuid())
+  submissionId             String
+  tenantId                 String
+  fileName                 String
+  fileType                 String
+  fileSize                 Int
+  s3Key                    String
+  documentType             DocumentType  @default(UNKNOWN)
+  classificationConfidence Float?
+  extractedData            Json?
+  status                   DocumentStatus @default(UPLOADED)
+  createdAt                DateTime      @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id])
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([submissionId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("documents")
 }
