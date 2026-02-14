@@ -212,3 +212,18 @@
   - totalClaimCount and totalIncurred have fallback calculations from parsed claims when explicit totals aren't found in the document (with lower confidence score of 0.5)
   - Each extraction service continues to use its own local helpers following the established pattern
 ---
+
+## 2026-02-15 - US-013
+- What was implemented: COI and entity document extraction services
+- Files changed:
+  - src/services/extraction-coi.ts (new: extractCOI function with insured/insurer name, policy details, coverage types, liability limits, agent contact extraction)
+  - src/services/extraction-entity-doc.ts (new: extractEntityDocument function with entity name/type, state of incorporation, registered agent, officers array, EIN extraction)
+  - prd.json (marked US-013 as passes: true)
+- **Learnings for future iterations:**
+  - COI documents use ACORD 25/28 format with standardized sections: insurer lettering (A-F), coverage types grid, limits columns — regex patterns target these specific layouts
+  - Entity type detection uses two-pass approach: (1) explicit field extraction (e.g., "Entity Type: LLC"), (2) keyword scanning in full text as fallback with lower confidence
+  - Officer extraction uses dual patterns: title-first ("President: John Smith") and name-first ("John Smith, President") with deduplication by name
+  - EIN format is always XX-XXXXXXX (2 digits, dash, 7 digits) — regex captures both with and without dash
+  - State of incorporation extraction uses a comprehensive state name + abbreviation pattern to match after common prefixes like "State of Incorporation:", "Organized in", "Laws of"
+  - Coverage types in COIs include special characters (e.g., "E&O", "PRODUCTS/COMPLETED OPERATIONS") — regex must escape & and / in pattern construction
+---
