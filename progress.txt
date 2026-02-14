@@ -41,6 +41,7 @@
 - Prisma enum in withTenantFilter: cast string literals to enum type (e.g., `"SIU_INVESTIGATOR" as Role`) when building where clauses via withTenantFilter
 - Audit logging: use `logAudit()` from `src/services/audit-log.ts` for all user-initiated actions; IP address from `x-forwarded-for` or `x-real-ip` headers
 - Config API routes: `src/app/api/config/thresholds/` — ADMIN-only, use `withRole(["ADMIN"])`, all mutations audit-logged with THRESHOLD_CHANGED action
+- Webhooks: `dispatchWebhookEvent(tenantId, event, data)` from `src/services/webhooks.ts` to fire events to tenant subscribers; HMAC-SHA256 signature in `X-Webhook-Signature` header
 ---
 
 ## 2026-02-15 - US-009
@@ -461,4 +462,24 @@
   - Preview re-routing follows same logic as routing-engine.ts: SIU referral > auto-approve > escalate > default review
   - Dynamic route params in `[lineOfBusiness]` need `decodeURIComponent()` for LOBs with spaces/special chars
   - All threshold changes create THRESHOLD_CHANGED audit log entries with before/after values
+---
+
+## 2026-02-15 - US-028
+- What was implemented: Webhook subscription and delivery system with HMAC-SHA256 signing
+- Files changed:
+  - prisma/schema.prisma (added WebhookSubscription model with tenant relation)
+  - prisma/migrations/20260215000005_add_webhook_subscriptions/migration.sql (SQL migration for webhook_subscriptions table)
+  - src/services/webhooks.ts (new: webhook delivery service with HMAC signing, retry logic, event dispatch)
+  - src/app/api/webhooks/route.ts (new: POST /api/webhooks for creating subscriptions, GET /api/webhooks for listing active subscriptions)
+  - src/app/api/webhooks/[id]/route.ts (new: DELETE /api/webhooks/:id for deactivating subscriptions)
+  - prd.json (marked US-028 as passes: true)
+- **Learnings for future iterations:**
+  - Webhook secrets use `whsec_` prefix + 32 random bytes hex for easy identification
+  - HMAC-SHA256 signature sent in `X-Webhook-Signature` header; computed over the stringified JSON body
+  - Retry logic: 3 attempts with exponential backoff (1s, 2s, 4s); 4xx errors are non-retryable, 5xx errors retry
+  - Webhook delivery uses `Promise.allSettled` to fire all matching subscriptions in parallel without blocking the main flow
+  - `dispatchWebhookEvent(tenantId, event, data)` is the entry point — finds active subscriptions matching the event type
+  - Secret is returned only on POST creation response; GET endpoint omits the secret for security
+  - DELETE endpoint soft-deletes by setting `isActive: false` rather than hard deleting the record
+  - Event types: submission.processed, submission.approved, submission.declined, submission.escalated, fraud.flag_raised, siu.case_created
 ---

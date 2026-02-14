@@ -118,7 +118,8 @@ model Tenant {
   thresholdConfigs ThresholdConfig[]
   siuCases         SIUCase[]
   whiteLabelConfig WhiteLabelConfig?
-  apiKeys          ApiKey[]
+  apiKeys              ApiKey[]
+  webhookSubscriptions WebhookSubscription[]
 
   @@map("tenants")
 }
@@ -318,6 +319,23 @@ model ApiKey {
   @@index([tenantId])
   @@index([key])
   @@map("api_keys")
+}
+
+// ─── WebhookSubscription ────────────────────────────────
+
+model WebhookSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  url       String
+  events    Json     @default("[]")
+  secret    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("webhook_subscriptions")
 }
 
 // ─── WhiteLabelConfig ───────────────────────────────────
