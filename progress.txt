@@ -354,3 +354,18 @@
   - SIU referral auto-creates an SIUCase record with OPEN status assigned to an SIU_INVESTIGATOR
   - All routing decisions create AuditLog entries with action, reason, and assigned user info
 ---
+
+## 2026-02-15 - US-022
+- What was implemented: Submission processing pipeline orchestrator that runs all processing steps in sequence when a submission is uploaded
+- Files changed:
+  - src/services/pipeline.ts (new: processSubmission function orchestrating classify → extract → detect → score → route pipeline)
+  - prd.json (marked US-022 as passes: true)
+- **Learnings for future iterations:**
+  - Pipeline uses `Promise.allSettled` for each step to handle errors gracefully — if one document fails classification/extraction, the remaining documents still process
+  - Document type to extractor mapping: only 7 of 17 document types have extractors (ACORD 125/130/140, LOSS_RUN, FINANCIAL_STATEMENT, COI, ENTITY_DOC); other types silently skip extraction
+  - PDF forensics runs on documents with `fileType === "application/pdf"` — filters by MIME type, not document type enum
+  - Detection engines (cross-doc, statistical, temporal, ratio) run in parallel since they're independent and all take submissionId
+  - Scoring and routing run sequentially after all detection engines complete (they depend on accumulated FraudIndicator records)
+  - Pipeline creates AuditLog entries for PROCESSING_STARTED and PROCESSING_COMPLETED with timing and error counts
+  - Error counts from each step tracked via `countErrors()` helper and included in completion audit log
+---
