@@ -1,0 +1,1015 @@
+{
+  "project": "Quantana Shield",
+  "branchName": "ralph/quantana-shield",
+  "description": "AI-powered insurance fraud detection SaaS platform for MGAs at the point of submission. Implements 100+ fraud indicators across 16 document types with dual portals (white-labeled broker submission + underwriter dashboard).",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Initialize project with Next.js, TypeScript, Tailwind, Prisma",
+      "description": "As a developer, I need the project scaffolded with the core tech stack so that all subsequent stories have a foundation to build on.",
+      "acceptanceCriteria": [
+        "Next.js 14+ app with TypeScript configured (strict mode)",
+        "Tailwind CSS installed and configured with a base theme (slate/blue color palette)",
+        "Prisma ORM installed with PostgreSQL provider configured",
+        "Project structure: src/app (pages), src/components, src/lib (utilities), src/services (business logic), prisma/ (schema)",
+        "ESLint and Prettier configured",
+        "Environment variables template (.env.example) with DATABASE_URL, NEXTAUTH_SECRET, S3_BUCKET placeholders",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Use App Router. This is the foundation for the entire platform."
+    },
+    {
+      "id": "US-002",
+      "title": "Database schema: tenants, users, and roles",
+      "description": "As a developer, I need the core multi-tenancy and auth schema so that users belong to MGAs with role-based access.",
+      "acceptanceCriteria": [
+        "Tenant table: id, name, slug, domain, logoUrl, primaryColor, secondaryColor, createdAt, updatedAt",
+        "User table: id, tenantId (FK), email, name, role (enum: ADMIN, UNDERWRITER, SENIOR_UNDERWRITER, SIU_INVESTIGATOR, COMPLIANCE_OFFICER, BROKER), passwordHash, mfaSecret, isActive, createdAt",
+        "Role enum defined in Prisma schema",
+        "Tenant-user relationship: one tenant has many users",
+        "Migration runs successfully and creates tables",
+        "Seed script creates a test tenant and one user per role",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "All subsequent tables will have tenantId for multi-tenancy."
+    },
+    {
+      "id": "US-003",
+      "title": "Database schema: submissions and documents",
+      "description": "As a developer, I need the submission and document tables so that uploaded files can be tracked through the processing pipeline.",
+      "acceptanceCriteria": [
+        "Submission table: id, tenantId (FK), submitterId (FK to User), insuredName, lineOfBusiness, status (enum: PROCESSING, UNDER_REVIEW, APPROVED, DECLINED, INFO_NEEDED, REFERRED_TO_SIU), riskScore (0-100 nullable), severity (enum: CRITICAL, HIGH, MEDIUM, LOW, CLEAN nullable), channel (enum: PORTAL, EMAIL, API), assignedUnderwriterId (FK nullable), createdAt, updatedAt",
+        "Document table: id, submissionId (FK), tenantId (FK), fileName, fileType, fileSize, s3Key, documentType (enum: ACORD_125, ACORD_130, ACORD_140, LOSS_RUN, FINANCIAL_STATEMENT, COI, ENTITY_DOC, INSPECTION_PHOTO, MVR, SOV, SURPLUS_LINES, PROFESSIONAL_LICENSE, ENVIRONMENTAL_REPORT, PAYROLL_TAX, BROKER_SUBMISSION, FLEET_SCHEDULE, UNKNOWN), classificationConfidence (float), extractedData (JSON), status (enum: UPLOADED, CLASSIFYING, EXTRACTING, ANALYZED, ERROR), createdAt",
+        "Indexes on tenantId, submissionId, status, createdAt",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Database schema: fraud indicators, audit logs, thresholds",
+      "description": "As a developer, I need tables for fraud detection results, audit trails, and configurable thresholds.",
+      "acceptanceCriteria": [
+        "FraudIndicator table: id, submissionId (FK), tenantId (FK), documentId (FK nullable), category (enum: CROSS_DOC, FORENSIC, STATISTICAL, TEMPORAL, RATIO, ENTITY_INTEL, VISUAL_AI, NLP, API_VERIFY, RULES), indicatorName, description, severity (enum: CRITICAL, HIGH, MEDIUM, LOW), evidence (JSON - source values, references, variance), confidence (float 0-1), recommended_action, isOverridden (bool default false), overriddenBy (FK nullable), overrideJustification (text nullable), createdAt",
+        "AuditLog table: id, tenantId (FK), submissionId (FK nullable), userId (FK nullable), action (string), details (JSON), ipAddress, createdAt",
+        "ThresholdConfig table: id, tenantId (FK), lineOfBusiness (string nullable for global), autoApproveBelow (int default 20), autoEscalateAbove (int default 70), siuReferralOnCritical (bool default true), createdAt, updatedAt",
+        "Migration runs successfully",
+        "Seed script creates default threshold config for test tenant",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Database schema: SIU cases and white-label settings",
+      "description": "As a developer, I need tables for SIU investigation tracking and per-tenant branding configuration.",
+      "acceptanceCriteria": [
+        "SIUCase table: id, tenantId (FK), submissionId (FK), status (enum: OPEN, INVESTIGATING, EVIDENCE_GATHERED, CONFIRMED_FRAUD, FALSE_POSITIVE, INCONCLUSIVE), assignedToId (FK to User), notes (JSON array of {userId, text, timestamp}), evidence (JSON array of {type, url, description, timestamp}), resolution (text nullable), createdAt, updatedAt",
+        "WhiteLabelConfig table: id, tenantId (FK unique), logoUrl, primaryColor (default '#1e40af'), secondaryColor (default '#3b82f6'), accentColor (default '#f59e0b'), customDomain (nullable), customEmailDomain (nullable), termsUrl (nullable), privacyUrl (nullable), footerText (nullable), supportEmail (nullable), supportPhone (nullable), createdAt, updatedAt",
+        "Migration runs successfully",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Auth service: JWT login, API key auth, and middleware",
+      "description": "As a developer, I need authentication so that users can log in and API consumers can authenticate with keys.",
+      "acceptanceCriteria": [
+        "NextAuth.js configured with Credentials provider (email/password)",
+        "JWT session strategy with tenantId and role in token payload",
+        "API key table in schema: id, tenantId, key (hashed), name, permissions (JSON), isActive, createdAt, lastUsedAt",
+        "Auth middleware that extracts user from JWT or API key header (X-API-Key)",
+        "Login API route: POST /api/auth/login returns JWT token",
+        "Protected API route wrapper that checks auth and injects tenantId",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Multi-tenant middleware and role-based access control",
+      "description": "As a developer, I need middleware that scopes all queries to the current tenant and enforces role permissions.",
+      "acceptanceCriteria": [
+        "withTenant middleware that adds tenantId filter to all Prisma queries",
+        "withRole middleware that checks user role against required roles for each endpoint",
+        "Role hierarchy: ADMIN > SENIOR_UNDERWRITER > UNDERWRITER; SIU_INVESTIGATOR and COMPLIANCE_OFFICER are independent roles",
+        "BROKER role can only access submission portal endpoints (submit, track, view own submissions)",
+        "All API routes return 403 if role check fails",
+        "All queries automatically scoped to tenant (no cross-tenant data leakage)",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Document upload API endpoint with S3 storage",
+      "description": "As a broker, I need to upload documents via API so they are stored securely and tracked in the database.",
+      "acceptanceCriteria": [
+        "POST /api/submissions endpoint: creates a new submission record, accepts multipart file uploads",
+        "Files stored to S3 with path: {tenantId}/{submissionId}/{documentId}/{filename}",
+        "Document records created with status UPLOADED, file metadata captured (name, type, size)",
+        "Maximum 50 files per submission, 500MB total limit enforced",
+        "Accepted file types: PDF, XLSX, DOCX, JPG, PNG, TIFF",
+        "Returns submission ID and list of document IDs with upload status",
+        "S3 client configured with env vars (AWS_REGION, S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Use @aws-sdk/client-s3 for uploads."
+    },
+    {
+      "id": "US-009",
+      "title": "Document classification service",
+      "description": "As the system, I need to auto-classify uploaded documents by type so that the correct extraction pipeline is triggered.",
+      "acceptanceCriteria": [
+        "Service function classifyDocument(documentId) that reads the file from S3 and determines document type",
+        "Classification based on: filename patterns, PDF text content keywords (ACORD 125, ACORD 130, etc.), page structure analysis",
+        "Returns one of 16 DocumentType enum values plus a confidence score (0-1)",
+        "Updates document record with documentType and classificationConfidence",
+        "Sets document status to CLASSIFYING during processing, then EXTRACTING on success or ERROR on failure",
+        "Handles: PDF (text extraction), images (basic OCR placeholder), spreadsheets (sheet name analysis)",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Use pdf-parse for PDF text extraction. Classification can start rule-based and upgrade to ML later."
+    },
+    {
+      "id": "US-010",
+      "title": "ACORD 125 data extraction service",
+      "description": "As the system, I need to extract structured fields from ACORD 125 Commercial Insurance Application forms.",
+      "acceptanceCriteria": [
+        "Service function extractAcord125(documentId) that reads PDF content and extracts key fields",
+        "Extracted fields stored in document.extractedData JSON: applicantName, businessName, dba, mailingAddress, physicalAddress, naicsCode, yearEstablished, annualRevenue, numberOfEmployees, priorCarrier, priorPolicyNumber, priorPremium, lossDisclosure (boolean), requestedCoverages (array), effectiveDate, expirationDate",
+        "Handles both text-based and form-field-based PDFs",
+        "Sets document status to ANALYZED on success",
+        "Logs extraction confidence per field in extractedData metadata",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Start with regex/pattern-based extraction. Can upgrade to ML-based IDP later."
+    },
+    {
+      "id": "US-011",
+      "title": "ACORD 130 and ACORD 140 data extraction services",
+      "description": "As the system, I need to extract structured fields from Workers' Comp (130) and Property (140) ACORD forms.",
+      "acceptanceCriteria": [
+        "extractAcord130(documentId): extracts totalPayroll, payrollByClassification (array of {classCode, description, payroll, employeeCount}), eModRate, priorCarrier, experienceModWorksheet fields",
+        "extractAcord140(documentId): extracts propertyLocations (array of {address, buildingValue, contentsValue, businessIncomeValue, constructionType, yearBuilt, squareFootage, occupancy, condition}), totalInsuredValue, deductible",
+        "Both store results in document.extractedData JSON",
+        "Both set document status to ANALYZED on success",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Loss run and financial statement extraction services",
+      "description": "As the system, I need to extract data from loss runs and financial statements for cross-document validation.",
+      "acceptanceCriteria": [
+        "extractLossRun(documentId): extracts carrier name, policyPeriod, claims (array of {claimNumber, dateOfLoss, claimType, status, paidAmount, reserveAmount, totalIncurred}), totalClaimCount, totalIncurred",
+        "extractFinancialStatement(documentId): extracts fiscalYear, revenue, costOfGoodsSold, grossProfit, operatingExpenses, netIncome, totalAssets, totalLiabilities, accountsReceivable, accountsPayable",
+        "Loss run normalization: maps varying carrier formats to standard schema",
+        "Both store results in document.extractedData JSON",
+        "Both set document status to ANALYZED on success",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "COI and entity document extraction services",
+      "description": "As the system, I need to extract data from Certificates of Insurance and business entity documents.",
+      "acceptanceCriteria": [
+        "extractCOI(documentId): extracts insuredName, insurerName, policyNumber, effectiveDate, expirationDate, coverageTypes (array), generalLiabilityLimit, autoLiabilityLimit, umbrellaLimit, workersCompLimit, agentName, agentEmail, agentPhone",
+        "extractEntityDocument(documentId): extracts entityName, entityType (LLC, Corp, etc.), stateOfIncorporation, incorporationDate, registeredAgent, registeredAgentAddress, officers (array of {name, title}), ein",
+        "Both store results in document.extractedData JSON and set status to ANALYZED",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Cross-document validation: revenue and payroll checks",
+      "description": "As the system, I need to compare revenue across ACORD 125 vs financial statements and payroll across ACORD 130 vs tax docs.",
+      "acceptanceCriteria": [
+        "Service function validateRevenue(submissionId): compares revenue from ACORD 125 extractedData vs financial statement extractedData",
+        "Flags >15% variance as HIGH severity, >25% as CRITICAL severity",
+        "Creates FraudIndicator record with category CROSS_DOC, evidence JSON containing both values and variance percentage",
+        "Service function validatePayroll(submissionId): compares total payroll from ACORD 130 vs payroll/tax document",
+        "Flags >$2,000 variance as HIGH, >10% variance as CRITICAL",
+        "Creates FraudIndicator record with evidence showing both values",
+        "Both functions skip gracefully if required documents are missing",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Cross-document validation: employee count, loss history, property values",
+      "description": "As the system, I need to cross-validate employee counts, loss claims, and property values across document types.",
+      "acceptanceCriteria": [
+        "validateEmployeeCount(submissionId): ACORD 125/130 headcount vs payroll doc count. Flag >2 difference as HIGH",
+        "validateLossHistory(submissionId): count claims in submitted loss runs vs count on ACORD 125 loss disclosure. Flag any omitted claim as CRITICAL",
+        "validatePropertyValues(submissionId): ACORD 140 insured values vs tax assessor benchmark (2x assessed = HIGH, 3x = CRITICAL). Uses a configurable assessed-to-insured ratio",
+        "Each creates FraudIndicator records with structured evidence (source values, document references, variance)",
+        "All functions skip gracefully if required documents missing",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "PDF metadata forensics service",
+      "description": "As the system, I need to analyze PDF metadata to detect forged or altered documents.",
+      "acceptanceCriteria": [
+        "Service function analyzePdfMetadata(documentId): reads PDF metadata (author, producer, creationDate, modDate)",
+        "Check 1: Flag if PDF creationDate is after the submission date (HIGH severity)",
+        "Check 2: Flag if multiple different PDF producers found across pages of same document (MEDIUM severity)",
+        "Check 3: Flag if author/producer is a personal name instead of expected software/carrier system (MEDIUM severity)",
+        "Check 4: Flag if document has no text layer (image-only PDF) preventing text verification (MEDIUM severity)",
+        "Creates FraudIndicator records for each flag with category FORENSIC",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "Use pdf-parse or pdf-lib for metadata extraction."
+    },
+    {
+      "id": "US-017",
+      "title": "Statistical anomaly detection service",
+      "description": "As the system, I need to detect statistical anomalies like round numbers and industry benchmark deviations.",
+      "acceptanceCriteria": [
+        "Service function detectStatisticalAnomalies(submissionId): runs all statistical checks",
+        "Round-number detection: flag currency values that are exact multiples of $100K across all extracted financials (MEDIUM)",
+        "Revenue growth check: flag YoY revenue growth >30% from financial statements (HIGH)",
+        "COGS margin check: flag COGS as % of revenue deviating >15% from industry norm lookup table by NAICS code (HIGH)",
+        "Payroll-per-head check: flag per-employee payroll outside industry norms (<$25K or >$80K for classification) (HIGH)",
+        "Industry benchmark lookup table stored as JSON config (NAICS code -> expected ranges)",
+        "Creates FraudIndicator records with category STATISTICAL and evidence showing actual vs expected values",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Temporal analysis service",
+      "description": "As the system, I need to detect temporal anomalies in dates across submission documents.",
+      "acceptanceCriteria": [
+        "Service function detectTemporalAnomalies(submissionId): runs all temporal checks",
+        "Coverage gap detection: flag gaps >30 days in prior coverage from COI/loss run dates (HIGH)",
+        "Claim timing clusters: flag if >50% of claims occurred within 60 days of policy inception/expiration (HIGH)",
+        "Document staleness: flag inspection reports >6 months old, MVRs >30 days old, ESAs >12 months old (MEDIUM)",
+        "Impossible dates: flag if loss run effective date is before policy effective date (CRITICAL)",
+        "Creates FraudIndicator records with category TEMPORAL and evidence showing the date values and gaps",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Financial ratio analysis service",
+      "description": "As the system, I need to calculate and evaluate financial ratios against industry benchmarks.",
+      "acceptanceCriteria": [
+        "Service function analyzeFinancialRatios(submissionId): extracts ratios from financial statement data",
+        "DSO calculation: flag Days Sales Outstanding growing >20% while revenue increases (CRITICAL - fictitious revenue indicator)",
+        "A/R ratio: flag Accounts Receivable >40% of revenue (HIGH)",
+        "Profit margin: flag net profit margin exceeding industry average by >50% (MEDIUM)",
+        "Contents-to-building ratio: flag if outside expected range for classification (retail 20-40%, manufacturing 30-60%) (HIGH)",
+        "Creates FraudIndicator records with category RATIO and evidence showing calculated ratio vs industry benchmark",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Risk scoring engine with severity classification",
+      "description": "As the system, I need to produce a composite fraud risk score (0-100) from all indicator results.",
+      "acceptanceCriteria": [
+        "Service function calculateRiskScore(submissionId): aggregates all FraudIndicator records for the submission",
+        "Weighted scoring: CRITICAL indicators contribute 25 points each (max 100), HIGH = 15, MEDIUM = 5, LOW = 1",
+        "Score capped at 100",
+        "Severity classification: score >85 or any CRITICAL = CRITICAL, 60-85 = HIGH, 35-60 = MEDIUM, <35 = LOW, 0 indicators = CLEAN",
+        "Updates submission record with riskScore and severity",
+        "Score breakdown stored: JSON object with points per category (CROSS_DOC, FORENSIC, STATISTICAL, etc.)",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "This is the rule-based scorer. ML ensemble scorer is a future upgrade."
+    },
+    {
+      "id": "US-021",
+      "title": "Auto-routing: approve, escalate, or refer based on thresholds",
+      "description": "As the system, I need to automatically route submissions based on MGA threshold configuration.",
+      "acceptanceCriteria": [
+        "Service function routeSubmission(submissionId): reads ThresholdConfig for the tenant (and line of business if configured)",
+        "Score below autoApproveBelow AND no MEDIUM+ indicators: set status to APPROVED, create audit log entry",
+        "Score above autoEscalateAbove OR any CRITICAL indicator: set status to UNDER_REVIEW, assign to senior underwriter",
+        "siuReferralOnCritical enabled AND forged/fabricated document indicator present: set status to REFERRED_TO_SIU, auto-create SIU case",
+        "All other submissions: set status to UNDER_REVIEW for standard underwriter review",
+        "Creates AuditLog entry for every routing decision with reason",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Submission processing pipeline orchestrator",
+      "description": "As the system, I need an orchestrator that runs all processing steps in sequence when a submission is uploaded.",
+      "acceptanceCriteria": [
+        "Service function processSubmission(submissionId): orchestrates the full pipeline",
+        "Step 1: Classify all documents (classifyDocument for each)",
+        "Step 2: Extract data from all classified documents (appropriate extractor per type)",
+        "Step 3: Run all Phase 1 detection engines (cross-doc validations, forensics, statistical, temporal, ratio)",
+        "Step 4: Calculate risk score",
+        "Step 5: Route submission based on thresholds",
+        "Handles errors gracefully: if one document fails extraction, continues with remaining documents",
+        "Updates submission status: PROCESSING during pipeline, then routed status on completion",
+        "Creates AuditLog entry for pipeline start and completion with timing",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "This ties all detection services together into a single pipeline."
+    },
+    {
+      "id": "US-023",
+      "title": "Audit logging service",
+      "description": "As the system, I need to log every significant action for compliance and regulatory audit trails.",
+      "acceptanceCriteria": [
+        "Service function logAudit(tenantId, action, details, userId?, submissionId?, ipAddress?): creates immutable AuditLog record",
+        "Actions logged: SUBMISSION_CREATED, DOCUMENT_UPLOADED, PROCESSING_STARTED, PROCESSING_COMPLETED, FRAUD_FLAG_RAISED, SUBMISSION_APPROVED, SUBMISSION_DECLINED, SUBMISSION_ESCALATED, SIU_REFERRAL, SCORE_OVERRIDE, THRESHOLD_CHANGED, USER_LOGIN",
+        "Details JSON includes: before/after values for changes, reason/justification for overrides",
+        "GET /api/audit-logs endpoint: returns paginated audit logs filtered by tenantId, submissionId, action, dateRange",
+        "Audit logs are append-only (no update/delete endpoints)",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Notification service: email notifications",
+      "description": "As the system, I need to send email notifications for key submission events.",
+      "acceptanceCriteria": [
+        "Service function sendNotification(type, recipientEmail, data): sends templated email",
+        "Templates: SUBMISSION_RECEIVED (to broker), SUBMISSION_APPROVED (to broker), SUBMISSION_DECLINED (to broker), INFO_NEEDED (to broker with specifics), ESCALATION_NOTICE (to broker - generic 'under review' message), NEW_SUBMISSION_FOR_REVIEW (to underwriter), SIU_REFERRAL (to SIU investigator)",
+        "Email templates use tenant white-label settings (logo, colors, from address)",
+        "Templates do NOT reveal fraud detection logic or scores to brokers",
+        "Uses a configurable email provider (env var EMAIL_PROVIDER: sendgrid or smtp)",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "Use @sendgrid/mail or nodemailer based on config."
+    },
+    {
+      "id": "US-025",
+      "title": "Email intake service: parse inbound submission emails",
+      "description": "As the system, I need to parse inbound emails and create submissions from their attachments.",
+      "acceptanceCriteria": [
+        "POST /api/intake/email webhook endpoint that receives parsed email data (from SendGrid Inbound Parse or similar)",
+        "Extracts sender email, subject line, and all attachments",
+        "Looks up tenant by recipient email address (submissions@{tenant-slug}.quantanashield.com)",
+        "Creates a new Submission record with channel=EMAIL and submitter identified by sender email",
+        "Uploads all valid attachments to S3 and creates Document records",
+        "Handles zip file attachments (extracts contents)",
+        "Sends auto-acknowledgment email to sender with submission ID and portal tracking link",
+        "Sends error notification if no valid attachments found",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Core API endpoints: submissions CRUD and status",
+      "description": "As an API consumer, I need RESTful endpoints to manage submissions and check their status.",
+      "acceptanceCriteria": [
+        "GET /api/submissions: list submissions for tenant, paginated, filterable by status, dateRange, severity, broker",
+        "GET /api/submissions/:id: full submission detail including documents, risk score, severity, status",
+        "POST /api/submissions: create submission with file uploads (already built in US-008, ensure it matches OpenAPI spec)",
+        "PATCH /api/submissions/:id/status: update status (approve, decline, request-info, refer-to-siu) with required justification for decline/override",
+        "GET /api/submissions/:id/indicators: list all fraud indicators for a submission",
+        "GET /api/submissions/:id/risk-report: full risk report with score breakdown, indicators, explainability text",
+        "All endpoints scoped to tenant, role-checked, and audit-logged",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Threshold management API endpoints",
+      "description": "As an MGA admin, I need API endpoints to view and update fraud detection thresholds.",
+      "acceptanceCriteria": [
+        "GET /api/config/thresholds: returns current threshold config for tenant (global + per-LOB overrides)",
+        "PUT /api/config/thresholds: update global thresholds (autoApproveBelow, autoEscalateAbove, siuReferralOnCritical). Requires ADMIN role",
+        "PUT /api/config/thresholds/:lineOfBusiness: set per-LOB threshold override. Requires ADMIN role",
+        "DELETE /api/config/thresholds/:lineOfBusiness: remove per-LOB override (falls back to global). Requires ADMIN role",
+        "GET /api/config/thresholds/preview: accepts proposed thresholds, returns how last 30 days of submissions would have been routed differently",
+        "All changes create AuditLog entry with before/after values",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Webhook subscription and delivery system",
+      "description": "As an API consumer, I need to subscribe to webhooks for submission events.",
+      "acceptanceCriteria": [
+        "WebhookSubscription table: id, tenantId, url, events (JSON array of event types), secret (for HMAC signing), isActive, createdAt",
+        "POST /api/webhooks: create subscription with url, events array, returns secret",
+        "GET /api/webhooks: list active subscriptions for tenant",
+        "DELETE /api/webhooks/:id: deactivate subscription",
+        "Event types: submission.processed, submission.approved, submission.declined, submission.escalated, fraud.flag_raised, siu.case_created",
+        "Delivery function: POST to subscriber URL with JSON payload, HMAC-SHA256 signature in X-Webhook-Signature header",
+        "Retry logic: 3 attempts with exponential backoff on failure",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Submission portal: layout, white-label theming, login page",
+      "description": "As a broker, I need a branded login page and portal shell with the MGA's branding.",
+      "acceptanceCriteria": [
+        "Portal route group at /portal with its own layout",
+        "Layout loads WhiteLabelConfig for the tenant (determined by subdomain or slug in URL)",
+        "Header shows tenant logo, nav links (New Submission, My Submissions, Profile)",
+        "Color scheme applied from tenant config (primary, secondary, accent colors as CSS variables)",
+        "No Quantana branding visible anywhere in the portal",
+        "Login page at /portal/login with email/password form, styled with tenant branding",
+        "Responsive design: works on desktop and tablet",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Submission portal: document upload page with drag-and-drop",
+      "description": "As a broker, I need a drag-and-drop upload interface to submit documents for a new submission.",
+      "acceptanceCriteria": [
+        "Page at /portal/submissions/new",
+        "Form fields: Insured Name (required), Line of Business (dropdown), Effective Date (date picker)",
+        "Drag-and-drop upload zone that accepts PDF, XLSX, DOCX, JPG, PNG, TIFF files",
+        "Multiple file upload support (up to 50 files)",
+        "Per-file progress indicators during upload",
+        "File list shows: filename, size, upload status (uploading/complete/error)",
+        "Remove button to delete an uploaded file before submission",
+        "Submit button calls POST /api/submissions, then redirects to classification review step",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "Use react-dropzone for the drag-and-drop zone."
+    },
+    {
+      "id": "US-031",
+      "title": "Submission portal: classification review and validation results",
+      "description": "As a broker, I need to review auto-classified documents and see instant validation feedback.",
+      "acceptanceCriteria": [
+        "Page at /portal/submissions/:id/review (shown after upload)",
+        "Shows list of uploaded documents with auto-detected type and confidence badge",
+        "Dropdown to correct misclassified documents (select from 16 document types + Unknown)",
+        "After classification confirmed, shows validation results section",
+        "Validation results grouped as: Action Required (red), Warning (yellow), Info (blue)",
+        "Each validation item shows: affected document, field, issue description, how to fix",
+        "Re-upload button to replace a document and re-validate",
+        "Confirm & Submit button finalizes the submission",
+        "No fraud scores or detection logic shown -- only data quality issues",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Submission portal: submission list and detail/status page",
+      "description": "As a broker, I need to see all my submissions and track their status.",
+      "acceptanceCriteria": [
+        "Page at /portal/submissions showing list of broker's submissions",
+        "Table columns: Submission Date, Insured Name, Line of Business, Status (badge), Assigned Underwriter",
+        "Status badges: Processing (blue spinner), Under Review (yellow), Approved (green), Declined (red), Info Needed (orange)",
+        "Filter by status and date range, search by insured name",
+        "Click row navigates to /portal/submissions/:id",
+        "Detail page shows: submission info, list of documents with status, current status with timeline, messages/requests from underwriter",
+        "Notification badge on nav for submissions needing action (INFO_NEEDED status)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Underwriter dashboard: layout, navigation, and login",
+      "description": "As an underwriter, I need a dashboard shell with navigation to all underwriter features.",
+      "acceptanceCriteria": [
+        "Dashboard route group at /dashboard with its own layout",
+        "Sidebar navigation: Triage Board, Analytics, SIU Cases, Configuration, Audit Trail",
+        "Header shows: user name, role badge, tenant name, 'Powered by Quantana Shield' subtle branding",
+        "Login page at /dashboard/login for underwriter/admin/SIU roles",
+        "Role-based nav: SIU Cases only visible to SIU_INVESTIGATOR and ADMIN, Configuration only to ADMIN",
+        "Dark/light mode toggle in header",
+        "Responsive sidebar (collapsible on smaller screens)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "Underwriter dashboard: triage board (kanban view)",
+      "description": "As an underwriter, I need a kanban board showing all submissions organized by status.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/triage",
+        "Kanban columns: New, In Review, Approved, Declined, Referred to SIU",
+        "Each submission card shows: insured name, broker name, LOB, date, risk score gauge (0-100 with color), severity badge (CRITICAL red, HIGH orange, MEDIUM yellow, LOW gray), indicator count",
+        "Cards sorted by risk score within each column (highest first)",
+        "Cards are draggable between columns (drag from New to Approved = approve action)",
+        "Click card opens submission detail in side panel or navigates to detail page",
+        "Filter bar: filter by severity, LOB, date range, broker",
+        "Bulk select checkbox + 'Approve Selected' button for LOW-risk batch approval",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "Use @dnd-kit/core for drag-and-drop."
+    },
+    {
+      "id": "US-035",
+      "title": "Underwriter dashboard: submission risk report detail view",
+      "description": "As an underwriter, I need to see the full risk report for a submission with all fraud indicators and evidence.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/submissions/:id",
+        "Risk score section: large gauge chart (0-100), severity badge, score breakdown bar chart by category (Cross-doc, Forensic, Statistical, Temporal, Ratio)",
+        "Fraud indicators list: each indicator shows name, severity badge, description, evidence panel with source values and document references, confidence score, recommended action",
+        "Indicators sortable by severity (CRITICAL first) and filterable by category",
+        "Explainability section: plain-English summary of top risk factors",
+        "Historical context: if prior submissions exist from same entity/broker, show link and comparison",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "Use recharts or chart.js for the gauge and bar charts."
+    },
+    {
+      "id": "US-036",
+      "title": "Underwriter dashboard: document viewer and action buttons",
+      "description": "As an underwriter, I need to view source documents alongside extracted data and take actions on submissions.",
+      "acceptanceCriteria": [
+        "Document viewer tab on submission detail page: side-by-side layout",
+        "Left panel: embedded PDF viewer showing the source document (use react-pdf or iframe)",
+        "Right panel: extracted data fields from that document, flagged fields highlighted in red/yellow",
+        "Document selector: dropdown to switch between documents in the submission",
+        "Action bar at bottom of detail page: Approve (green), Request More Info (orange), Decline (red), Refer to SIU (purple)",
+        "Decline and Override actions require a justification text input (modal)",
+        "Override risk score button (SENIOR_UNDERWRITER and ADMIN only): enter new score with justification",
+        "Mark as False Positive button on individual indicators (with justification)",
+        "All actions create AuditLog entries and trigger appropriate notifications",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "Underwriter dashboard: threshold configuration page",
+      "description": "As an MGA admin, I need a UI to configure auto-approve and escalation thresholds.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/config/thresholds (ADMIN role only)",
+        "Global thresholds section: sliders for Auto-Approve Below (0-100, default 20), Auto-Escalate Above (0-100, default 70), toggle for SIU Referral on Critical (default on)",
+        "Per-LOB overrides section: table of LOBs with override values, add/remove override buttons",
+        "Score distribution chart: histogram showing last 30 days of submission scores with threshold lines overlaid",
+        "Preview mode: toggle that shows how current submissions would be re-routed with proposed threshold changes (call preview API)",
+        "Save button with confirmation dialog showing impact summary",
+        "All changes logged to audit trail",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-038",
+      "title": "Underwriter dashboard: user management page",
+      "description": "As an MGA admin, I need to manage users and their roles within my organization.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/config/users (ADMIN role only)",
+        "Table of users: name, email, role (badge), status (active/inactive), last login, created date",
+        "Invite user button: modal with email, name, role dropdown. Sends invitation email",
+        "Edit user: change role, activate/deactivate. Cannot deactivate yourself",
+        "Role dropdown shows: Admin, Underwriter, Senior Underwriter, SIU Investigator, Compliance Officer, Broker",
+        "User count shown in header (e.g., '7 users, 3 active underwriters')",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-039",
+      "title": "SIU case management: API and case list page",
+      "description": "As an SIU investigator, I need to see all fraud investigation cases and their current status.",
+      "acceptanceCriteria": [
+        "API endpoints: GET /api/siu-cases (list, filterable by status), GET /api/siu-cases/:id (detail), PATCH /api/siu-cases/:id (update status, add notes/evidence)",
+        "SIU case auto-created when submission is referred to SIU (from US-021 routing)",
+        "Page at /dashboard/siu-cases (SIU_INVESTIGATOR and ADMIN roles)",
+        "Table view: case ID, insured name, submission date, status badge, assigned investigator, last updated, indicator count",
+        "Filter by status: Open, Investigating, Evidence Gathered, Confirmed Fraud, False Positive, Inconclusive",
+        "Click row navigates to case detail page",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-040",
+      "title": "SIU case detail: evidence, timeline, notes, and resolution",
+      "description": "As an SIU investigator, I need a full case view with evidence collection, investigation timeline, and resolution workflow.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/siu-cases/:id",
+        "Case header: insured name, submission link, status badge, assigned investigator, SLA timer (based on severity)",
+        "Fraud indicators tab: all indicators from the submission, same as risk report view",
+        "Evidence tab: list of collected evidence items (documents, screenshots, external verification results). Upload new evidence button",
+        "Timeline tab: chronological activity log (case created, notes added, status changes, evidence uploaded)",
+        "Notes panel: add investigation notes with timestamp and author. Markdown supported",
+        "Status update buttons: Investigating, Evidence Gathered, Confirmed Fraud, False Positive, Inconclusive",
+        "Resolution requires: resolution summary text. Confirmed Fraud and False Positive feed back to ML pipeline (flag on FraudIndicator records)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-041",
+      "title": "SIU report generation: DOI fraud referral and investigation summary",
+      "description": "As an SIU investigator, I need to generate regulatory reports from case data.",
+      "acceptanceCriteria": [
+        "Generate Report button on SIU case detail page with dropdown: State DOI Fraud Referral, Internal Investigation Summary",
+        "State DOI Fraud Referral: generates PDF with case details, fraud indicators, evidence summary, formatted for state DOI submission (configurable template per state)",
+        "Internal Investigation Summary: generates PDF with full case timeline, all indicators, evidence, resolution, for carrier audit",
+        "Reports include: case ID, dates, insured info, detailed fraud findings, investigator conclusions",
+        "Reports stored as evidence attachments on the case",
+        "Download button for generated reports",
+        "Typecheck passes"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": "Use @react-pdf/renderer or puppeteer for PDF generation."
+    },
+    {
+      "id": "US-042",
+      "title": "Portfolio analytics: summary metrics and trend charts",
+      "description": "As an MGA executive, I need a dashboard showing submission volume, fraud rates, and processing metrics.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/analytics",
+        "KPI cards at top: Total Submissions (period), Flagged Rate (%), Auto-Approved Rate (%), Declined Rate (%), SIU Referral Rate (%), Avg Processing Time",
+        "Date range selector (7d, 30d, 90d, YTD, custom)",
+        "Trend line chart: submissions over time (daily/weekly) with flagged vs clean breakdown",
+        "Severity distribution pie chart: CRITICAL, HIGH, MEDIUM, LOW, CLEAN counts",
+        "Top fraud indicators table: most frequently triggered indicators ranked by count",
+        "All data fetched from API: GET /api/analytics/summary and GET /api/analytics/trends",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043",
+      "title": "Portfolio analytics: broker quality scores and compliance dashboard",
+      "description": "As an MGA executive, I need broker performance scoring and compliance readiness metrics.",
+      "acceptanceCriteria": [
+        "Broker Quality tab on analytics page",
+        "Broker leaderboard table: broker name, total submissions, clean rate (%), flagged rate (%), CRITICAL flag count, quality score (0-100 computed from clean rate)",
+        "Click broker row shows: submission history, common flag types, trend over time",
+        "Compliance tab on analytics page",
+        "Compliance metrics: antifraud plan checklist (indicators implemented, audit trail completeness, reporting status), data retention status, fraud warning compliance",
+        "Estimated Savings card: total estimated losses avoided = sum of (flagged CRITICAL submissions x average fraud loss amount configurable)",
+        "Export to CSV button for all analytics tables",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044",
+      "title": "Audit trail viewer page",
+      "description": "As a compliance officer, I need to view and search the complete audit trail.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/audit-trail (ADMIN and COMPLIANCE_OFFICER roles)",
+        "Table: timestamp, user, action type (badge), submission ID (link), details summary",
+        "Filter by: action type (dropdown), user, date range, submission ID",
+        "Search bar for free-text search across details",
+        "Click row expands to show full details JSON (before/after values, justification text)",
+        "Export filtered results to CSV",
+        "Pagination (50 entries per page)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-045",
+      "title": "White-label settings configuration page",
+      "description": "As an MGA admin, I need to configure the submission portal's branding.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/config/white-label (ADMIN role only)",
+        "Logo upload field with preview (stores to S3, updates WhiteLabelConfig.logoUrl)",
+        "Color pickers for: primary color, secondary color, accent color. Live preview of portal header",
+        "Custom domain field (submissions.mga-name.com) with setup instructions",
+        "Custom email sender field with SPF/DKIM setup instructions",
+        "Terms of Use URL and Privacy Policy URL fields",
+        "Footer text and support contact fields",
+        "Save button updates WhiteLabelConfig record",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-046",
+      "title": "API key management and OpenAPI documentation page",
+      "description": "As an MGA admin, I need to manage API keys and access API documentation.",
+      "acceptanceCriteria": [
+        "Page at /dashboard/config/api (ADMIN role only)",
+        "List of API keys: name, key prefix (first 8 chars), created date, last used, status (active/revoked)",
+        "Create API key button: modal with name field. Shows full key ONCE after creation (cannot retrieve later)",
+        "Revoke button to deactivate a key",
+        "API Documentation section: embedded OpenAPI spec viewer (use swagger-ui-react or redoc)",
+        "OpenAPI spec served at /api/docs/openapi.json covering all public API endpoints",
+        "Sandbox toggle: switch API key context between production and sandbox",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-047",
+      "title": "Phase 2: SOS entity verification service",
+      "description": "As the system, I need to verify business entities against Secretary of State records.",
+      "acceptanceCriteria": [
+        "Service function verifyEntity(submissionId): extracts entity name and state from ACORD 125 or entity documents",
+        "Calls SOS API (or mock/stub for MVP) to check: entity exists, active status, incorporation date, registered agent",
+        "Flag: entity not found = CRITICAL, entity inactive/dissolved = CRITICAL, incorporated <2 years with mature operations claimed = HIGH",
+        "Flag: registered agent address is virtual office or PO box = MEDIUM",
+        "Creates FraudIndicator records with category ENTITY_INTEL",
+        "Gracefully handles API failures with retry and fallback to manual verification queue",
+        "Typecheck passes"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": "Start with a mock API interface that can be swapped for real state APIs."
+    },
+    {
+      "id": "US-048",
+      "title": "Phase 2: OFAC screening and broker license verification",
+      "description": "As the system, I need to screen entities against sanctions lists and verify broker licenses.",
+      "acceptanceCriteria": [
+        "Service function screenOFAC(submissionId): extracts all named entities and individuals, checks against OFAC SDN list",
+        "OFAC list loaded from CSV/JSON (updated periodically). Fuzzy name matching with configurable threshold",
+        "Any OFAC match = CRITICAL severity indicator",
+        "Service function verifyBrokerLicense(submissionId): extracts broker name and state from submission/cover letter",
+        "Checks against NIPR database (or mock for MVP): license exists, active status, disciplinary history",
+        "Broker not found = CRITICAL, license expired/suspended = CRITICAL, disciplinary actions = HIGH",
+        "Creates FraudIndicator records with category ENTITY_INTEL",
+        "Typecheck passes"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-049",
+      "title": "Phase 2: Address classification and EIN validation",
+      "description": "As the system, I need to classify business addresses and validate Federal EIN timing.",
+      "acceptanceCriteria": [
+        "Service function classifyAddress(address): returns classification (RESIDENTIAL, COMMERCIAL, VIRTUAL_OFFICE, PO_BOX) using address validation API (or heuristic for MVP)",
+        "Flag: registered agent or business address classified as virtual office or PO box for commercial entity = MEDIUM",
+        "Service function validateEIN(submissionId): extracts EIN from entity documents, checks issuance date",
+        "Flag: EIN filed <6 months before application date = HIGH",
+        "Flag: business incorporated <2 years with no web presence = HIGH (web presence check via simple domain/Google search heuristic)",
+        "Creates FraudIndicator records with category ENTITY_INTEL",
+        "Typecheck passes"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-050",
+      "title": "Phase 2: Image forensics service (ELA, EXIF, copy-move)",
+      "description": "As the system, I need to detect manipulated photos in property inspection submissions.",
+      "acceptanceCriteria": [
+        "Service function analyzeImage(documentId): runs image forensics on submitted photos",
+        "EXIF analysis: extract GPS coordinates, compare to claimed property address (>1 mile = CRITICAL). Flag stripped EXIF = HIGH",
+        "EXIF timestamp analysis: flag if photo timestamps span only minutes for multi-hour inspection = MEDIUM",
+        "Error Level Analysis placeholder: flag images with ELA anomalies (implement as stub returning low-confidence results, ready for ML model integration)",
+        "Copy-move detection placeholder: stub ready for ML model integration",
+        "Creates FraudIndicator records with category VISUAL_AI",
+        "Typecheck passes"
+      ],
+      "priority": 50,
+      "passes": false,
+      "notes": "Use exif-reader for EXIF extraction. ELA and copy-move are ML-heavy - stub for now."
+    },
+    {
+      "id": "US-051",
+      "title": "Phase 2: GenAI forgery detection and template matching",
+      "description": "As the system, I need to detect AI-generated documents and verify document templates match expected formats.",
+      "acceptanceCriteria": [
+        "Service function detectGenAIForgery(documentId): stub service that accepts a document and returns a forgery probability score (0-1)",
+        "Interface defined for future ML model integration: input = document bytes, output = {isLikelyForged: boolean, confidence: number, indicators: string[]}",
+        "Flag: isLikelyForged with confidence >0.7 = CRITICAL",
+        "Service function matchTemplate(documentId): compares document layout/structure against known templates for the document type",
+        "Template library: JSON config mapping document types to expected structural features (page count ranges, field positions, logo presence)",
+        "Flag: document format doesn't match expected state/carrier template = HIGH",
+        "Creates FraudIndicator records with category VISUAL_AI",
+        "Typecheck passes"
+      ],
+      "priority": 51,
+      "passes": false,
+      "notes": "GenAI detection is stub-ready for ML model. Template matching starts rule-based."
+    },
+    {
+      "id": "US-052",
+      "title": "Phase 2: Broker cover letter NLP analysis",
+      "description": "As the system, I need to detect concealment, pressure tactics, and manipulation in broker narratives.",
+      "acceptanceCriteria": [
+        "Service function analyzeBrokerLetter(documentId): extracts text from broker submission/cover letter",
+        "Pressure language detection: scan for keywords/phrases ('urgent', 'time-sensitive', 'need quick response', 'expiring today') = MEDIUM",
+        "Manipulation detection: scan for ('ignore', 'overlook', 'disregard', 'don't worry about', 'minor issue') = HIGH",
+        "Concealment check: cross-reference with loss runs - if letter doesn't mention known prior losses = CRITICAL",
+        "Declination detection: scan for evidence of prior coverage declinations not disclosed = HIGH",
+        "Creates FraudIndicator records with category NLP and evidence showing matched phrases with context",
+        "Typecheck passes"
+      ],
+      "priority": 52,
+      "passes": false,
+      "notes": "Start with keyword/regex patterns. Can upgrade to transformer-based intent detection later."
+    },
+    {
+      "id": "US-053",
+      "title": "Phase 2: VIN decoder and professional license verification",
+      "description": "As the system, I need to validate vehicle identification numbers and professional licenses.",
+      "acceptanceCriteria": [
+        "Service function decodeVIN(vin): calls NHTSA VIN decoder API to get year, make, model, vehicle type",
+        "Service function validateFleetVINs(submissionId): extracts VINs from fleet schedule documents, decodes each",
+        "Flag: VIN doesn't match stated year/make/model = CRITICAL",
+        "Flag: non-CDL driver assigned to commercial vehicle = HIGH",
+        "Service function verifyProfessionalLicense(submissionId): extracts license numbers from professional license documents",
+        "Checks against state board database (stub/mock for MVP): license exists, active, not expired/suspended",
+        "Flag: license not found = CRITICAL, expired/suspended = CRITICAL, scope mismatch = HIGH",
+        "Creates FraudIndicator records with category API_VERIFY",
+        "Typecheck passes"
+      ],
+      "priority": 53,
+      "passes": false,
+      "notes": "NHTSA VIN decoder is a free public API. License verification starts as mock."
+    },
+    {
+      "id": "US-054",
+      "title": "Phase 2: Cross-submission entity resolution",
+      "description": "As the system, I need to detect the same entity appearing across unrelated submissions (fraud ring indicator).",
+      "acceptanceCriteria": [
+        "Service function resolveEntities(submissionId): extracts key entity identifiers (owner names, EINs, addresses, phone numbers, agent names) from the submission",
+        "Fuzzy matches these identifiers against ALL other submissions in the tenant's database (and optionally cross-tenant with anonymized matching)",
+        "Flag: same beneficial owner appearing in >2 unrelated submissions = CRITICAL",
+        "Flag: same address used across unrelated submissions = HIGH",
+        "Flag: same agent with >25% of submissions falling outside appetite = MEDIUM",
+        "Creates FraudIndicator records with category ENTITY_INTEL and evidence showing matched submissions",
+        "Uses fuzzy string matching (Levenshtein distance) for name comparison, exact match for EIN/phone",
+        "Typecheck passes"
+      ],
+      "priority": 54,
+      "passes": false,
+      "notes": "This is the beginning of the network graph moat (Phase 3 builds on this)."
+    },
+    {
+      "id": "US-055",
+      "title": "Update processing pipeline to include Phase 2 detection engines",
+      "description": "As the system, I need the submission processing pipeline to run Phase 2 detection engines after Phase 1.",
+      "acceptanceCriteria": [
+        "Update processSubmission orchestrator (from US-022) to include Phase 2 steps",
+        "After Phase 1 detection, run: entity verification (SOS, OFAC, broker license, address, EIN), image forensics, GenAI detection, template matching, broker letter NLP, VIN validation, professional license verification, cross-submission entity resolution",
+        "Phase 2 engines run only on relevant document types (e.g., image forensics only on INSPECTION_PHOTO documents)",
+        "Phase 2 engine failures don't block Phase 1 results -- partial results are still scored",
+        "Risk score recalculated after Phase 2 engines complete (includes all Phase 1 + Phase 2 indicators)",
+        "Typecheck passes"
+      ],
+      "priority": 55,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-056",
+      "title": "Compliance: fraud warning language and data retention config",
+      "description": "As a compliance officer, I need state-mandated fraud warnings on submission acknowledgments and configurable data retention.",
+      "acceptanceCriteria": [
+        "FraudWarning config: JSON file mapping state codes to required fraud warning text",
+        "Submission acknowledgment emails include the appropriate state fraud warning based on the insured's state",
+        "Portal submission confirmation page displays the fraud warning text",
+        "Data retention config on tenant: retentionYears (default 5, max 10) stored in tenant settings",
+        "Background job stub: deleteExpiredData that would purge records older than retentionYears (logs what would be deleted but doesn't actually delete in MVP)",
+        "Compliance dashboard shows retention policy status and data age distribution",
+        "Typecheck passes"
+      ],
+      "priority": 56,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-057",
+      "title": "Seed data: realistic test submissions with fraud indicators",
+      "description": "As a developer, I need seed data so that the platform can be demonstrated with realistic submissions.",
+      "acceptanceCriteria": [
+        "Seed script creates 20 test submissions across the test tenant",
+        "Mix of statuses: 8 APPROVED (clean, auto-approved), 5 UNDER_REVIEW (medium risk), 4 DECLINED (high risk), 3 REFERRED_TO_SIU (critical)",
+        "Each submission has 3-8 mock documents with realistic extractedData JSON",
+        "Flagged submissions have realistic FraudIndicator records (revenue mismatch, expired COI, payroll discrepancy, etc.)",
+        "2 SIU cases created with notes, evidence, and timeline entries",
+        "Audit log entries for all seed actions",
+        "Broker users linked to their submissions",
+        "Seed is idempotent (can run multiple times without duplicating)",
+        "Typecheck passes"
+      ],
+      "priority": 57,
+      "passes": false,
+      "notes": "This enables demo and testing of all UI features."
+    }
+  ]
+}
