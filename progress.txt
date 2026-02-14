@@ -509,3 +509,19 @@
   - Responsive design: mobile navigation bar collapses below md breakpoint, user name hidden on small screens
   - Next.js Image component required for external logo URLs (lint warning with plain `<img>`)
 ---
+
+## 2026-02-15 - US-030
+- What was implemented: Submission portal document upload page with drag-and-drop file upload, form fields, and file management
+- Files changed:
+  - src/app/portal/submissions/new/page.tsx (new: upload page with react-dropzone, insured name/LOB/effective date form, file list with status badges, progress indicators, remove buttons)
+  - package.json (added react-dropzone dependency)
+  - prd.json (marked US-030 as passes: true)
+- **Learnings for future iterations:**
+  - react-dropzone `accept` prop uses MIME types as keys with extension arrays as values: `{ "application/pdf": [".pdf"], ... }`
+  - Portal form pattern: use the same input styling as login page with `focus:border-[var(--portal-primary)]` and `focus:ring-2 focus:ring-[var(--portal-primary)]/20`
+  - For select/dropdown inputs, the same input styling pattern applies but with `<select>` element
+  - File upload to API: build `FormData`, append form fields and files, POST to `/api/submissions` — no Content-Type header needed (browser sets multipart boundary automatically)
+  - Use inline `style={{ backgroundColor: "var(--portal-primary)" }}` for buttons rather than Tailwind arbitrary values, since CSS vars work more reliably with opacity in inline styles
+  - File type icons: map extensions to color classes (pdf=red, xlsx=green, docx=blue, images=purple) for visual differentiation in the file list
+  - After submission POST, redirect to `/portal/submissions/${submissionId}/review` for the classification review step (US-031)
+---
