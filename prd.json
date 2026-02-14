@@ -164,7 +164,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Start with regex/pattern-based extraction. Can upgrade to ML-based IDP later."
     },
     {

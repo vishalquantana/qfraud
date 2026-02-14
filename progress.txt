@@ -22,6 +22,8 @@
 - pdf-parse v2 uses class-based API: `new PDFParse({ data: Uint8Array })` then `.getText()` then `.destroy()`
 - S3 downloads: `getFromS3(s3Key)` in `src/lib/s3.ts` returns Buffer
 - Classification service: `src/services/classification.ts` with `classifyDocument(documentId)` function
+- Extraction services: `src/services/extraction-acord125.ts` pattern — read doc from DB, extract PDF text via `extractPdfText(s3Key)`, regex-extract fields, store in `document.extractedData` JSON, set status to ANALYZED
+- Prisma JSON fields: use `JSON.parse(JSON.stringify(data))` to satisfy `InputJsonValue` type when writing complex objects to Json columns
 ---
 
 ## 2026-02-15 - US-009
@@ -168,4 +170,17 @@
   - Broker submissions endpoint is already in BROKER_ALLOWED_PATTERNS in rbac.ts
   - Document records are created before S3 upload so we have the document ID for the S3 key path; s3Key is updated after successful upload
   - File type validation uses both MIME type and file extension as fallback (browsers may send generic MIME types)
+---
+
+## 2026-02-15 - US-010
+- What was implemented: ACORD 125 data extraction service with regex/pattern-based field extraction from PDF text
+- Files changed:
+  - src/services/extraction-acord125.ts (new: extractAcord125 function with 16 field extractors, per-field confidence metadata, PDF text parsing via pdf-parse v2)
+  - prd.json (marked US-010 as passes: true)
+- **Learnings for future iterations:**
+  - Extraction service pattern: `findUniqueOrThrow` to get doc → `extractPdfText(s3Key)` → run field extractors → build result with `_metadata` for per-field confidence → `prisma.document.update` with `extractedData` + `status: "ANALYZED"` → catch errors and set `status: "ERROR"`
+  - Use `JSON.parse(JSON.stringify(data))` when writing complex typed objects to Prisma `Json` columns — direct casting to `Record<string, unknown>` doesn't satisfy `InputJsonValue`
+  - `extractPdfText(s3Key)` helper is reusable across all extraction services (same pdf-parse v2 pattern from classification)
+  - Each field extractor returns `{ value, confidence: { confidence, source } }` or null — this feeds both the extracted value and the `_metadata` confidence map
+  - `extractField()` helper tries multiple regex patterns in order and returns first match — good for ACORD forms where labels vary between versions
 ---
