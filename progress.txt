@@ -8,6 +8,10 @@
 - Prisma 7 seed config goes in `migrations.seed` (not top-level `seed`): `migrations: { seed: "npx tsx prisma/seed.ts" }`
 - Without a running DB, use `prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script` to generate SQL
 - Seed script must create its own PrismaClient with adapter (can't use global singleton since it runs standalone)
+- Auth: NextAuth v4 config in `src/lib/auth.ts`, route handler in `src/app/api/auth/[...nextauth]/route.ts`
+- Auth middleware: `extractAuth(req)` in `src/lib/auth-middleware.ts` supports JWT and X-API-Key
+- Protected routes: wrap handlers with `withAuth()` from `src/lib/api-handler.ts` to inject `tenantId`
+- API keys stored as SHA-256 hashes; use `hashApiKey()` from auth-middleware
 ---
 
 ## 2026-02-15 - US-001
@@ -87,4 +91,26 @@
   - WhiteLabelConfig uses `@unique` on tenantId for 1:1 relationship with Tenant (use `WhiteLabelConfig?` on the Tenant side)
   - SIUCase.notes and SIUCase.evidence use `Json @default("[]")` for arrays of structured objects (notes: {userId, text, timestamp}, evidence: {type, url, description, timestamp})
   - Named relation `@relation("SIUCaseAssignee")` needed to distinguish from other User relations
+---
+
+## 2026-02-15 - US-006
+- What was implemented: Auth service with JWT login, API key authentication, and middleware
+- Files changed:
+  - prisma/schema.prisma (added ApiKey model with tenant relation, hashed key storage)
+  - prisma/migrations/20260215000004_add_api_keys/migration.sql (incremental SQL migration for api_keys table)
+  - src/lib/auth.ts (NextAuth.js config with Credentials provider, JWT strategy, tenantId+role in token)
+  - src/app/api/auth/[...nextauth]/route.ts (NextAuth route handler for App Router)
+  - src/lib/auth-middleware.ts (extractAuth function for JWT or X-API-Key header, hashApiKey utility)
+  - src/app/api/auth/login/route.ts (POST /api/auth/login returning JWT token)
+  - src/lib/api-handler.ts (withAuth wrapper that checks auth and injects tenantId, helper functions)
+  - .env.example (added EMAIL_PROVIDER placeholder)
+  - package.json (added next-auth, bcryptjs, jsonwebtoken + type definitions)
+  - prd.json (marked US-006 as passes: true)
+- **Learnings for future iterations:**
+  - NextAuth v4 with App Router uses route handler in `src/app/api/auth/[...nextauth]/route.ts`
+  - NextAuth JWT callback receives `user` only on sign-in; subsequent calls only get `token`
+  - API keys stored as SHA-256 hashes in DB; raw key shown once on creation
+  - `withAuth` wrapper pattern: extracts auth, gets tenantId, passes `ProtectedRequest` to handler
+  - For Next.js App Router route params, use `context.params` as a Promise (Next.js 16 pattern)
+  - `getToken` from `next-auth/jwt` works in API routes to extract JWT without session
 ---

@@ -118,6 +118,7 @@ model Tenant {
   thresholdConfigs ThresholdConfig[]
   siuCases         SIUCase[]
   whiteLabelConfig WhiteLabelConfig?
+  apiKeys          ApiKey[]
 
   @@map("tenants")
 }
@@ -298,6 +299,25 @@ model SIUCase {
   @@index([submissionId])
   @@index([status])
   @@map("siu_cases")
+}
+
+// ─── ApiKey ─────────────────────────────────────────────
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String   @unique
+  name        String
+  permissions Json     @default("[]")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([key])
+  @@map("api_keys")
 }
 
 // ─── WhiteLabelConfig ───────────────────────────────────
