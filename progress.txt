@@ -402,3 +402,21 @@
   - EMAIL_PROVIDER env var selects between "sendgrid" (using @sendgrid/mail) and "smtp" (using nodemailer)
   - nodemailer transport is created per-send (not cached) since the service is stateless; for high volume, consider a persistent transport
 ---
+
+## 2026-02-15 - US-025
+- What was implemented: Email intake service that parses inbound emails and creates submissions from their attachments
+- Files changed:
+  - src/services/email-intake.ts (new: processInboundEmail function with tenant lookup, zip extraction, file upload, and auto-acknowledgment)
+  - src/app/api/intake/email/route.ts (new: POST /api/intake/email webhook endpoint supporting both multipart form-data and JSON payloads)
+  - package.json (added jszip dependency for zip file extraction)
+  - prd.json (marked US-025 as passes: true)
+- **Learnings for future iterations:**
+  - Email intake webhook is unauthenticated (called by email providers like SendGrid Inbound Parse) — security comes from validating recipient email format and tenant lookup
+  - Tenant slug extracted from recipient email: `submissions@{tenant-slug}.quantanashield.com` using regex
+  - Sender lookup uses `tenantId_email` compound unique constraint to find the user in the correct tenant
+  - Zip file extraction uses JSZip's `loadAsync()` — handles nested zip structures, filters out system files (__MACOSX, dotfiles), only extracts accepted file types
+  - SendGrid Inbound Parse can send attachments either as direct form-data file entries OR via `attachment-info` JSON + named file entries — handle both patterns
+  - From address parsing handles both raw email (`user@example.com`) and formatted (`John Smith <user@example.com>`) via angle bracket extraction
+  - Insured name derived from email subject line with `fwd:` and `re:` prefixes stripped
+  - Error notification sent when no valid attachments found; success acknowledgment includes tracking URL with portal link
+---
