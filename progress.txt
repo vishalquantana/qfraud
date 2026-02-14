@@ -12,6 +12,10 @@
 - Auth middleware: `extractAuth(req)` in `src/lib/auth-middleware.ts` supports JWT and X-API-Key
 - Protected routes: wrap handlers with `withAuth()` from `src/lib/api-handler.ts` to inject `tenantId`
 - API keys stored as SHA-256 hashes; use `hashApiKey()` from auth-middleware
+- RBAC: `withTenant()` and `withRole()` wrappers in `src/lib/rbac.ts` for tenant scoping + role checks
+- Tenant scoping: use `withTenantFilter(tenantId, { ...where })` to add tenantId to Prisma queries
+- Role hierarchy: ADMIN > SENIOR_UNDERWRITER > UNDERWRITER (hierarchy); SIU_INVESTIGATOR, COMPLIANCE_OFFICER (independent); BROKER (restricted)
+- BROKER role is auto-blocked from non-portal API paths by `withTenant` middleware
 ---
 
 ## 2026-02-15 - US-001
@@ -113,4 +117,18 @@
   - `withAuth` wrapper pattern: extracts auth, gets tenantId, passes `ProtectedRequest` to handler
   - For Next.js App Router route params, use `context.params` as a Promise (Next.js 16 pattern)
   - `getToken` from `next-auth/jwt` works in API routes to extract JWT without session
+---
+
+## 2026-02-15 - US-007
+- What was implemented: Multi-tenant middleware and role-based access control
+- Files changed:
+  - src/lib/rbac.ts (new: withTenant, withRole wrappers, withTenantFilter helper, hasRole/hasAnyRole checks, broker path restrictions)
+  - prd.json (marked US-007 as passes: true)
+- **Learnings for future iterations:**
+  - `withTenant()` wraps route handlers with auth + automatic broker path enforcement
+  - `withRole(["ADMIN", "UNDERWRITER"], handler)` combines auth + tenant scoping + role checking in one wrapper
+  - `withTenantFilter(tenantId, whereClause)` is a simple helper to inject tenantId into any Prisma where clause - use it in all queries
+  - Role hierarchy is only for the underwriting line (ADMIN > SENIOR_UNDERWRITER > UNDERWRITER). SIU_INVESTIGATOR and COMPLIANCE_OFFICER are independent - they only match themselves or ADMIN
+  - BROKER is auto-blocked from non-portal paths (regex patterns in BROKER_ALLOWED_PATTERNS) within the withTenant middleware
+  - API key auth bypasses role checks in withRole (API key permissions are handled separately)
 ---
