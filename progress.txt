@@ -5,6 +5,9 @@
 - Tailwind v4 with `@theme inline` for custom tokens (not tailwind.config.js)
 - ESLint 9 flat config with eslint-config-next + eslint-config-prettier
 - Global prisma singleton in `src/lib/prisma.ts` using adapter pattern
+- Prisma 7 seed config goes in `migrations.seed` (not top-level `seed`): `migrations: { seed: "npx tsx prisma/seed.ts" }`
+- Without a running DB, use `prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script` to generate SQL
+- Seed script must create its own PrismaClient with adapter (can't use global singleton since it runs standalone)
 ---
 
 ## 2026-02-15 - US-001
@@ -29,4 +32,21 @@
   - Tailwind v4 uses `@theme inline` blocks in CSS instead of tailwind.config.js
   - Next.js 16 uses eslint.config.mjs (ESLint flat config) instead of .eslintrc.json
   - The prisma generate command needs DATABASE_URL set even for client generation: `DATABASE_URL="..." npx prisma generate`
+---
+
+## 2026-02-15 - US-002
+- What was implemented: Database schema for tenants, users, and roles with multi-tenancy support
+- Files changed:
+  - prisma/schema.prisma (added Role enum, Tenant model, User model with tenant FK)
+  - prisma/migrations/20260215000000_add_tenants_and_users/migration.sql (SQL migration)
+  - prisma/migrations/migration_lock.toml (migration lock file)
+  - prisma/seed.ts (seed script creating test tenant + one user per role)
+  - prisma.config.ts (added seed command in migrations config)
+  - prd.json (marked US-002 as passes: true)
+- **Learnings for future iterations:**
+  - Prisma 7 seed config goes inside `migrations: { seed: "npx tsx prisma/seed.ts" }`, NOT at top level
+  - `prisma migrate dev` requires a running DB; use `prisma migrate diff --from-empty --to-schema` to generate SQL without one
+  - Use `@@unique([tenantId, email])` for compound unique constraints in multi-tenant schemas
+  - Use `@@map("tablename")` on models to control the actual PostgreSQL table names
+  - Seed script uses upsert for idempotency (safe to run multiple times)
 ---
