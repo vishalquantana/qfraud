@@ -75,6 +75,15 @@ enum DocumentStatus {
   ERROR
 }
 
+enum SIUCaseStatus {
+  OPEN
+  INVESTIGATING
+  EVIDENCE_GATHERED
+  CONFIRMED_FRAUD
+  FALSE_POSITIVE
+  INCONCLUSIVE
+}
+
 enum FraudIndicatorCategory {
   CROSS_DOC
   FORENSIC
@@ -107,6 +116,8 @@ model Tenant {
   fraudIndicators  FraudIndicator[]
   auditLogs        AuditLog[]
   thresholdConfigs ThresholdConfig[]
+  siuCases         SIUCase[]
+  whiteLabelConfig WhiteLabelConfig?
 
   @@map("tenants")
 }
@@ -129,6 +140,7 @@ model User {
   assignedSubmissions  Submission[]     @relation("AssignedUnderwriter")
   indicatorOverrides   FraudIndicator[] @relation("IndicatorOverrides")
   auditLogs            AuditLog[]       @relation("AuditLogUser")
+  assignedSIUCases     SIUCase[]        @relation("SIUCaseAssignee")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -157,6 +169,7 @@ model Submission {
   documents           Document[]
   fraudIndicators     FraudIndicator[]
   auditLogs           AuditLog[]
+  siuCases            SIUCase[]
 
   @@index([tenantId])
   @@index([status])
@@ -261,4 +274,52 @@ model ThresholdConfig {
 
   @@index([tenantId])
   @@map("threshold_configs")
+}
+
+// ─── SIUCase ────────────────────────────────────────────
+
+model SIUCase {
+  id           String        @id @default(cuid())
+  tenantId     String
+  submissionId String
+  status       SIUCaseStatus @default(OPEN)
+  assignedToId String
+  notes        Json          @default("[]")
+  evidence     Json          @default("[]")
+  resolution   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  submission Submission @relation(fields: [submissionId], references: [id])
+  assignedTo User       @relation("SIUCaseAssignee", fields: [assignedToId], references: [id])
+
+  @@index([tenantId])
+  @@index([submissionId])
+  @@index([status])
+  @@map("siu_cases")
+}
+
+// ─── WhiteLabelConfig ───────────────────────────────────
+
+model WhiteLabelConfig {
+  id                String   @id @default(cuid())
+  tenantId          String   @unique
+  logoUrl           String?
+  primaryColor      String   @default("#1e40af")
+  secondaryColor    String   @default("#3b82f6")
+  accentColor       String   @default("#f59e0b")
+  customDomain      String?
+  customEmailDomain String?
+  termsUrl          String?
+  privacyUrl        String?
+  footerText        String?
+  supportEmail      String?
+  supportPhone      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("white_label_configs")
 }

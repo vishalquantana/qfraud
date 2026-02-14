@@ -76,3 +76,15 @@
   - ThresholdConfig uses `lineOfBusiness: null` for the global config; per-LOB overrides have a specific value
   - Seed script uses `findFirst` + conditional `create` for ThresholdConfig since there's no natural unique constraint for upsert (tenantId + null lineOfBusiness)
 ---
+
+## 2026-02-15 - US-005
+- What was implemented: Database schema for SIU cases and white-label configuration
+- Files changed:
+  - prisma/schema.prisma (added SIUCaseStatus enum, SIUCase model with tenant/submission/user relations, WhiteLabelConfig model with unique tenantId constraint; added reverse relations on Tenant, User, Submission)
+  - prisma/migrations/20260215000003_add_siu_cases_and_white_label_configs/migration.sql (incremental SQL migration)
+  - prd.json (marked US-005 as passes: true)
+- **Learnings for future iterations:**
+  - WhiteLabelConfig uses `@unique` on tenantId for 1:1 relationship with Tenant (use `WhiteLabelConfig?` on the Tenant side)
+  - SIUCase.notes and SIUCase.evidence use `Json @default("[]")` for arrays of structured objects (notes: {userId, text, timestamp}, evidence: {type, url, description, timestamp})
+  - Named relation `@relation("SIUCaseAssignee")` needed to distinguish from other User relations
+---
