@@ -384,3 +384,21 @@
   - No update/delete endpoints — audit logs are append-only by design for compliance
   - Existing audit log creation in routing-engine.ts and pipeline.ts directly uses prisma.auditLog.create — future refactoring could migrate those to use logAudit() for consistency
 ---
+
+## 2026-02-15 - US-024
+- What was implemented: Notification service with configurable email provider (SendGrid/SMTP), 7 email templates using tenant white-label branding
+- Files changed:
+  - src/services/notification.ts (new: sendNotification function with 7 template builders, dual email provider support, white-label branding integration)
+  - .env.example (added SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASSWORD, SENDGRID_API_KEY, EMAIL_FROM_ADDRESS)
+  - package.json (added nodemailer, @sendgrid/mail, @types/nodemailer)
+  - prd.json (marked US-024 as passes: true)
+- **Learnings for future iterations:**
+  - Notification service follows a template builder pattern: each NotificationType maps to a build function that returns {subject, html}
+  - Broker-facing templates (SUBMISSION_RECEIVED, APPROVED, DECLINED, INFO_NEEDED, ESCALATION_NOTICE) never reveal fraud scores, risk details, or detection logic
+  - Internal templates (NEW_SUBMISSION_FOR_REVIEW, SIU_REFERRAL) include severity, indicator count, and risk details for underwriter/SIU context
+  - All emails use a shared wrapInLayout() function that applies tenant branding (logo, colors, footer, support info, legal links)
+  - From address priority: WhiteLabelConfig.supportEmail → custom email domain → default quantanashield.com
+  - sendNotification() catches all errors to prevent email failures from breaking main workflows (logging only)
+  - EMAIL_PROVIDER env var selects between "sendgrid" (using @sendgrid/mail) and "smtp" (using nodemailer)
+  - nodemailer transport is created per-send (not cached) since the service is stateless; for high volume, consider a persistent transport
+---
