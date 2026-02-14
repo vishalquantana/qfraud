@@ -244,3 +244,17 @@
   - Both functions skip gracefully (early return, no error) if required documents are missing — important for partial submissions
   - Evidence JSON includes both source values and document IDs for traceability in the UI
 ---
+
+## 2026-02-15 - US-015
+- What was implemented: Cross-document validation for employee count, loss history, and property values
+- Files changed:
+  - src/services/validation-cross-doc.ts (added validateEmployeeCount, validateLossHistory, validatePropertyValues functions; added imports for Acord140ExtractedData and LossRunExtractedData; added employeeCount to PayrollTaxExtractedData)
+  - prd.json (marked US-015 as passes: true)
+- **Learnings for future iterations:**
+  - Employee count validation uses a cascading source strategy: prefer ACORD 125 `numberOfEmployees`, fallback to summing ACORD 130 `payrollByClassification[].employeeCount`
+  - Loss history validation aggregates claims from ALL loss run documents (multiple loss runs per submission) — use `findMany` not `findFirst`
+  - Loss history omission (lossDisclosure=false but claims exist) is the strongest signal — flagged as CRITICAL with 0.9 confidence
+  - Property value validation uses a configurable assessed-to-insured ratio (default 0.7) as a heuristic since real tax assessor data isn't available in MVP
+  - Property validation iterates per-location (each property in the ACORD 140) and creates separate fraud indicators per location
+  - All three functions follow the established cross-doc pattern: findExtractedData helper, skip gracefully if docs missing, JSON.parse(JSON.stringify()) for evidence
+---
