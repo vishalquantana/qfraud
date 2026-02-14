@@ -40,6 +40,7 @@
 - Notification service: `sendNotification(type, recipientEmail, tenantId, data)` — 4 args, tenantId is required 3rd argument
 - Prisma enum in withTenantFilter: cast string literals to enum type (e.g., `"SIU_INVESTIGATOR" as Role`) when building where clauses via withTenantFilter
 - Audit logging: use `logAudit()` from `src/services/audit-log.ts` for all user-initiated actions; IP address from `x-forwarded-for` or `x-real-ip` headers
+- Config API routes: `src/app/api/config/thresholds/` — ADMIN-only, use `withRole(["ADMIN"])`, all mutations audit-logged with THRESHOLD_CHANGED action
 ---
 
 ## 2026-02-15 - US-009
@@ -443,4 +444,21 @@
   - Risk report explainability: generate plain-English summaries from indicator severity/category aggregations for underwriter consumption
   - Prior submissions: query by insuredName for same-entity history linking, exclude current submission with `{ not: id }`
   - Severity ordering: use `{ severity: "asc" }` in Prisma orderBy to get CRITICAL first (enum order: CRITICAL, HIGH, MEDIUM, LOW, CLEAN)
+---
+
+## 2026-02-15 - US-027
+- What was implemented: Threshold management API endpoints for viewing and updating fraud detection thresholds
+- Files changed:
+  - src/app/api/config/thresholds/route.ts (new: GET for current config with global + per-LOB overrides, PUT for updating global thresholds with validation and audit logging)
+  - src/app/api/config/thresholds/[lineOfBusiness]/route.ts (new: PUT for setting per-LOB override, DELETE for removing per-LOB override with fallback to global)
+  - src/app/api/config/thresholds/preview/route.ts (new: GET preview endpoint that simulates re-routing of last 30 days submissions with proposed thresholds)
+  - prd.json (marked US-027 as passes: true)
+- **Learnings for future iterations:**
+  - Config API routes use `withRole(["ADMIN"])` since only admins can modify thresholds
+  - ThresholdConfig lookup: `lineOfBusiness: null` = global, non-null = per-LOB override
+  - Cross-validation (approveBelow < escalateAbove) must use existing values as defaults when partial updates are sent
+  - Preview endpoint batch-fetches all indicators for efficiency rather than per-submission queries
+  - Preview re-routing follows same logic as routing-engine.ts: SIU referral > auto-approve > escalate > default review
+  - Dynamic route params in `[lineOfBusiness]` need `decodeURIComponent()` for LOBs with spaces/special chars
+  - All threshold changes create THRESHOLD_CHANGED audit log entries with before/after values
 ---
