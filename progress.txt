@@ -19,6 +19,24 @@
 - S3 client: `src/lib/s3.ts` with `uploadToS3(tenantId, submissionId, documentId, fileName, buffer, contentType)` returning the s3Key
 - S3 key path format: `{tenantId}/{submissionId}/{documentId}/{filename}`
 - Multipart uploads: use `req.formData()` in App Router, iterate entries with `instanceof File` check
+- pdf-parse v2 uses class-based API: `new PDFParse({ data: Uint8Array })` then `.getText()` then `.destroy()`
+- S3 downloads: `getFromS3(s3Key)` in `src/lib/s3.ts` returns Buffer
+- Classification service: `src/services/classification.ts` with `classifyDocument(documentId)` function
+---
+
+## 2026-02-15 - US-009
+- What was implemented: Document classification service that auto-classifies uploaded documents by type
+- Files changed:
+  - src/services/classification.ts (new: classifyDocument function with filename, PDF text, spreadsheet, and image classification strategies)
+  - src/lib/s3.ts (added getFromS3 function using GetObjectCommand for downloading files)
+  - package.json (added pdf-parse v2 dependency for PDF text extraction)
+  - prd.json (marked US-009 as passes: true)
+- **Learnings for future iterations:**
+  - pdf-parse v2 has a completely different API from v1: use `new PDFParse({ data: Uint8Array })` class, call `.getText()` for text extraction, and `.destroy()` to clean up
+  - @types/pdf-parse is for v1 only — do NOT install it with pdf-parse v2 (v2 ships its own types)
+  - Classification uses a multi-strategy approach: filename patterns (0.7 confidence), PDF text keywords (up to 0.99), spreadsheet patterns (0.6), image default (0.5)
+  - Document status transitions: UPLOADED → CLASSIFYING → EXTRACTING (success) or ERROR (failure)
+  - S3 GetObject returns a stream body; use `transformToWebStream().getReader()` to convert to Buffer
 ---
 
 ## 2026-02-15 - US-001

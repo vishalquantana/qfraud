@@ -148,7 +148,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Use pdf-parse for PDF text extraction. Classification can start rule-based and upgrade to ML later."
     },
     {
