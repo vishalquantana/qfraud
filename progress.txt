@@ -1,1 +1,32 @@
-../scripts/ralph/progress.txt
+## Codebase Patterns
+- Project uses Next.js 16 (App Router) with TypeScript strict mode
+- Prisma 7 requires driver adapters (using @prisma/adapter-pg) - no direct DB URL in PrismaClient constructor
+- Prisma client is generated to `src/generated/prisma/` - import from `@/generated/prisma/client`
+- Tailwind v4 with `@theme inline` for custom tokens (not tailwind.config.js)
+- ESLint 9 flat config with eslint-config-next + eslint-config-prettier
+- Global prisma singleton in `src/lib/prisma.ts` using adapter pattern
+---
+
+## 2026-02-15 - US-001
+- What was implemented: Project scaffolding with Next.js 16, TypeScript (strict), Tailwind CSS v4 (slate/blue palette), Prisma 7 with PostgreSQL adapter, ESLint + Prettier, env template
+- Files changed:
+  - package.json (project config, dependencies, scripts)
+  - tsconfig.json (TypeScript strict mode)
+  - src/app/layout.tsx (root layout with Quantana Shield branding)
+  - src/app/page.tsx (minimal landing page)
+  - src/app/globals.css (Tailwind v4 theme with blue/slate color palette)
+  - src/lib/prisma.ts (Prisma client singleton with PrismaPg adapter)
+  - src/components/.gitkeep, src/services/.gitkeep (directory structure)
+  - prisma/schema.prisma (base Prisma schema with PostgreSQL)
+  - prisma.config.ts (Prisma 7 config)
+  - eslint.config.mjs (ESLint flat config with prettier)
+  - .prettierrc.json (Prettier config)
+  - .env.example (environment variable template)
+  - .gitignore (updated for Next.js, Prisma, env files)
+  - postcss.config.mjs, next.config.ts (Next.js/PostCSS config)
+- **Learnings for future iterations:**
+  - Prisma 7 uses `prisma-client` generator (not `prisma-client-js`) and requires either `adapter` or `accelerateUrl` in constructor
+  - Tailwind v4 uses `@theme inline` blocks in CSS instead of tailwind.config.js
+  - Next.js 16 uses eslint.config.mjs (ESLint flat config) instead of .eslintrc.json
+  - The prisma generate command needs DATABASE_URL set even for client generation: `DATABASE_URL="..." npx prisma generate`
+---
