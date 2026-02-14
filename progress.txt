@@ -369,3 +369,18 @@
   - Pipeline creates AuditLog entries for PROCESSING_STARTED and PROCESSING_COMPLETED with timing and error counts
   - Error counts from each step tracked via `countErrors()` helper and included in completion audit log
 ---
+
+## 2026-02-15 - US-023
+- What was implemented: Audit logging service with logAudit function and GET /api/audit-logs endpoint
+- Files changed:
+  - src/services/audit-log.ts (new: logAudit function with typed AuditAction union, LogAuditParams interface)
+  - src/app/api/audit-logs/route.ts (new: GET /api/audit-logs endpoint with pagination, filtering by action/submissionId/userId/dateRange, ADMIN and COMPLIANCE_OFFICER role restriction)
+  - prd.json (marked US-023 as passes: true)
+- **Learnings for future iterations:**
+  - Audit log service is a thin wrapper around prisma.auditLog.create — keeps it simple and focused
+  - AuditAction type union enforces consistent action names across all callers
+  - GET endpoint uses withRole(["ADMIN", "COMPLIANCE_OFFICER"]) for access control — only these roles should see audit trails
+  - Default page size is 50 (vs 20 for submissions) since audit logs are scanned more than paginated
+  - No update/delete endpoints — audit logs are append-only by design for compliance
+  - Existing audit log creation in routing-engine.ts and pipeline.ts directly uses prisma.auditLog.create — future refactoring could migrate those to use logAudit() for consistency
+---
