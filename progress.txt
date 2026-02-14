@@ -198,3 +198,17 @@
   - Each extraction service follows same pattern but with its own local `extractField`, `parseCurrency`, `parseInteger`, `extractPdfText` helpers — these could be refactored to a shared module if more extractors are needed
   - Construction type extraction uses both regex patterns and keyword matching as fallback for common types (FRAME, JOISTED MASONRY, FIRE RESISTIVE, etc.)
 ---
+
+## 2026-02-15 - US-012
+- What was implemented: Loss run and financial statement data extraction services
+- Files changed:
+  - src/services/extraction-loss-run.ts (new: extractLossRun function with carrier name, policy period, individual claims parsing via 3 strategies, totalClaimCount, totalIncurred with normalization)
+  - src/services/extraction-financial-statement.ts (new: extractFinancialStatement function with income statement fields (revenue, COGS, gross profit, operating expenses, net income) and balance sheet fields (total assets, total liabilities, A/R, A/P))
+  - prd.json (marked US-012 as passes: true)
+- **Learnings for future iterations:**
+  - Loss run formats vary significantly across carriers — use 3-tier claim parsing: (1) full table pattern with all columns, (2) simplified pattern with claim # + date + amount, (3) individual claim block parsing
+  - Financial statements use parentheses for negative numbers — `parseCurrency` must handle `(1,234.56)` → `-1234.56`
+  - Loss run normalization maps abbreviations to standard statuses (e.g., "CLSD" → "CLOSED", "OPN" → "OPEN") and computes totalIncurred from paid + reserve when missing
+  - totalClaimCount and totalIncurred have fallback calculations from parsed claims when explicit totals aren't found in the document (with lower confidence score of 0.5)
+  - Each extraction service continues to use its own local helpers following the established pattern
+---
