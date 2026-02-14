@@ -32,6 +32,8 @@
 - Industry benchmarks: `src/services/industry-benchmarks.ts` — `getBenchmark(naicsCode)` returns COGS margin range, payroll-per-head range, max revenue growth by 2-digit NAICS sector code
 - Temporal detection: `src/services/detection-temporal.ts` — `detectTemporalAnomalies(submissionId)` runs coverage gap, claim timing cluster, document staleness, and impossible date checks with category TEMPORAL
 - Date parsing: all extracted dates are `string | null` — use robust `parseDate()` that handles MM/DD/YYYY, YYYY-MM-DD, MM/DD/YY formats; loss run `policyPeriod` uses "date - date" format
+- Financial ratio analysis: `src/services/analysis-financial-ratios.ts` — `analyzeFinancialRatios(submissionId)` runs DSO, A/R ratio, profit margin, and contents-to-building ratio checks with category RATIO
+- Contents-to-building ratio ranges by occupancy: retail 20-40%, manufacturing 30-60%, office 10-30%, warehouse 15-50%, restaurant 20-45%; use `classifyOccupancy()` to map freeform occupancy strings
 ---
 
 ## 2026-02-15 - US-009
@@ -308,4 +310,17 @@
   - Claim timing clusters: require at least 3 claims to detect meaningful patterns; check each claim against both policy inception (60 days after start) and expiration (60 days before end)
   - Document staleness uses `doc.createdAt` as proxy for document date — real implementation would extract date from document content
   - Impossible dates check: loss run effective date AFTER policy effective is flagged because loss runs should cover prior periods; COI expiration before effective is logically impossible
+---
+
+## 2026-02-15 - US-019
+- What was implemented: Financial ratio analysis service with 4 checks: DSO anomaly, A/R ratio, profit margin, contents-to-building ratio
+- Files changed:
+  - src/services/analysis-financial-ratios.ts (new: analyzeFinancialRatios function orchestrating 4 parallel checks)
+  - prd.json (marked US-019 as passes: true)
+- **Learnings for future iterations:**
+  - Financial ratio analysis follows the same detection service pattern: main function fetches submission for tenantId, delegates to parallel check functions via Promise.all, each creates FraudIndicator with category RATIO
+  - DSO check uses prior-year A/R from financial statement and compares against 45-day industry norm baseline — if DSO exceeds norm by >20% AND revenue is growing, it's a classic fictitious revenue indicator
+  - Contents-to-building ratio varies by occupancy classification — use `classifyOccupancy()` to map freeform occupancy strings to categories (retail, manufacturing, office, warehouse, restaurant)
+  - Industry profit margin benchmarks stored inline by NAICS sector code; threshold is industry average * 1.5 (50% above average)
+  - A/R ratio check is straightforward: flag if accounts receivable > 40% of revenue from financial statement
 ---
