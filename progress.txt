@@ -30,6 +30,8 @@
 - Forensic services: fetch document with `include: { submission: true }`, create FraudIndicator with category FORENSIC per check
 - Detection services pattern: `src/services/detection-statistical.ts` — main function fetches submission for tenantId, delegates to parallel check functions via Promise.all, each creates FraudIndicator with relevant category
 - Industry benchmarks: `src/services/industry-benchmarks.ts` — `getBenchmark(naicsCode)` returns COGS margin range, payroll-per-head range, max revenue growth by 2-digit NAICS sector code
+- Temporal detection: `src/services/detection-temporal.ts` — `detectTemporalAnomalies(submissionId)` runs coverage gap, claim timing cluster, document staleness, and impossible date checks with category TEMPORAL
+- Date parsing: all extracted dates are `string | null` — use robust `parseDate()` that handles MM/DD/YYYY, YYYY-MM-DD, MM/DD/YY formats; loss run `policyPeriod` uses "date - date" format
 ---
 
 ## 2026-02-15 - US-009
@@ -291,4 +293,19 @@
   - COGS margin deviation threshold is 15 percentage points from the expected range edges (not relative %)
   - Payroll-per-head uses cascading employee count source: prefer ACORD 125 `numberOfEmployees`, fallback to summing ACORD 130 classification employee counts
   - Revenue growth uses ACORD 125 as "current" revenue and financial statement as "prior year" — this is a heuristic that works for applications submitted with last fiscal year financials
+---
+
+## 2026-02-15 - US-018
+- What was implemented: Temporal analysis service with 4 anomaly detection checks
+- Files changed:
+  - src/services/detection-temporal.ts (new: detectTemporalAnomalies function orchestrating 4 parallel checks)
+  - prd.json (marked US-018 as passes: true)
+- **Learnings for future iterations:**
+  - Temporal detection follows same pattern as statistical detection: main function fetches submission for tenantId, delegates to parallel check functions via Promise.all
+  - All date fields in extraction types are `string | null` — need a robust `parseDate()` helper that handles MM/DD/YYYY, YYYY-MM-DD, MM-DD-YYYY, and MM/DD/YY formats
+  - Loss run `policyPeriod` is a string like "MM/DD/YYYY - MM/DD/YYYY" — split on dash/to separators with regex `\s*[-–—to]+\s*` to handle en-dash and em-dash variants
+  - Coverage gap detection: compare most recent prior coverage end date (from COIs and loss runs) against ACORD 125 requested effective date — only flag if requested date is AFTER prior coverage ended
+  - Claim timing clusters: require at least 3 claims to detect meaningful patterns; check each claim against both policy inception (60 days after start) and expiration (60 days before end)
+  - Document staleness uses `doc.createdAt` as proxy for document date — real implementation would extract date from document content
+  - Impossible dates check: loss run effective date AFTER policy effective is flagged because loss runs should cover prior periods; COI expiration before effective is logically impossible
 ---
