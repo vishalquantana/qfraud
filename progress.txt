@@ -26,6 +26,8 @@
 - Prisma JSON fields: use `JSON.parse(JSON.stringify(data))` to satisfy `InputJsonValue` type when writing complex objects to Json columns
 - Cross-doc validation pattern: `src/services/validation-cross-doc.ts` — use `findExtractedData<T>(submissionId, docType)` helper, compare values, create FraudIndicator with category CROSS_DOC
 - Prisma nullable JSON where: don't use `{ not: null }` (type error), filter without it and check `!doc.extractedData` at runtime
+- pdf-parse v2 metadata: use `getInfo()` → `InfoResult` with `.info`, `.total`, `.getDateNode()` for parsed dates; `getText()` → `TextResult` with `.text`
+- Forensic services: fetch document with `include: { submission: true }`, create FraudIndicator with category FORENSIC per check
 ---
 
 ## 2026-02-15 - US-009
@@ -257,4 +259,19 @@
   - Property value validation uses a configurable assessed-to-insured ratio (default 0.7) as a heuristic since real tax assessor data isn't available in MVP
   - Property validation iterates per-location (each property in the ACORD 140) and creates separate fraud indicators per location
   - All three functions follow the established cross-doc pattern: findExtractedData helper, skip gracefully if docs missing, JSON.parse(JSON.stringify()) for evidence
+---
+
+## 2026-02-15 - US-016
+- What was implemented: PDF metadata forensics service that analyzes PDF metadata to detect forged or altered documents
+- Files changed:
+  - src/services/forensics-pdf-metadata.ts (new: analyzePdfMetadata function with 4 forensic checks)
+  - prd.json (marked US-016 as passes: true)
+- **Learnings for future iterations:**
+  - pdf-parse v2 uses `getInfo()` (not `getMetadata()`) for document metadata — returns `InfoResult` with `.info` (raw PDF info dict), `.total` (page count), and `.getDateNode()` for parsed dates
+  - `getDateNode()` returns `DateNode` with `CreationDate`, `ModDate` as proper `Date | null` objects — no need for manual PDF date string parsing
+  - `getText()` returns a `TextResult` object with `.text` property (string), not a raw string
+  - Forensic service pattern: fetch document with `include: { submission: true }`, download from S3, extract metadata, run checks, create FraudIndicator records with category FORENSIC
+  - For detecting personal names in PDF metadata, use a two-pass approach: (1) exclude known software patterns, (2) check for 2-4 capitalized words pattern
+  - Multiple PDF producers check: compare `producer` vs `creator` fields (stripped of version numbers) — different base names suggest document assembly from multiple sources
+  - Image-only PDF detection: use text layer length threshold (>50 chars = has text layer)
 ---

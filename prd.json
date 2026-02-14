@@ -260,7 +260,7 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "Use pdf-parse or pdf-lib for metadata extraction."
     },
     {
