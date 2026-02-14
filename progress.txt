@@ -34,6 +34,7 @@
 - Date parsing: all extracted dates are `string | null` — use robust `parseDate()` that handles MM/DD/YYYY, YYYY-MM-DD, MM/DD/YY formats; loss run `policyPeriod` uses "date - date" format
 - Financial ratio analysis: `src/services/analysis-financial-ratios.ts` — `analyzeFinancialRatios(submissionId)` runs DSO, A/R ratio, profit margin, and contents-to-building ratio checks with category RATIO
 - Contents-to-building ratio ranges by occupancy: retail 20-40%, manufacturing 30-60%, office 10-30%, warehouse 15-50%, restaurant 20-45%; use `classifyOccupancy()` to map freeform occupancy strings
+- Risk scoring: `src/services/scoring-engine.ts` — `calculateRiskScore(submissionId)` aggregates non-overridden FraudIndicators, returns ScoreBreakdown with totalScore, severity, and per-category points
 ---
 
 ## 2026-02-15 - US-009
@@ -323,4 +324,17 @@
   - Contents-to-building ratio varies by occupancy classification — use `classifyOccupancy()` to map freeform occupancy strings to categories (retail, manufacturing, office, warehouse, restaurant)
   - Industry profit margin benchmarks stored inline by NAICS sector code; threshold is industry average * 1.5 (50% above average)
   - A/R ratio check is straightforward: flag if accounts receivable > 40% of revenue from financial statement
+---
+
+## 2026-02-15 - US-020
+- What was implemented: Risk scoring engine that aggregates all FraudIndicator records into a composite risk score (0-100) with severity classification
+- Files changed:
+  - src/services/scoring-engine.ts (new: calculateRiskScore function with weighted scoring, severity classification, and category breakdown)
+  - prd.json (marked US-020 as passes: true)
+- **Learnings for future iterations:**
+  - Risk scoring uses weighted severity: CRITICAL=25, HIGH=15, MEDIUM=5, LOW=1, capped at 100
+  - Severity classification: >85 or any CRITICAL → CRITICAL, 60-85 → HIGH, 35-60 → MEDIUM, <35 → LOW, 0 indicators → CLEAN
+  - Only non-overridden indicators (isOverridden: false) are included in the score — overridden false-positives don't count
+  - Score breakdown tracks both counts and points per FraudIndicatorCategory — useful for the UI bar chart in US-035
+  - Function returns a ScoreBreakdown object with totalScore, severity, categoryCounts, categoryPoints, and indicatorCounts for downstream use
 ---

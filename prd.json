@@ -329,7 +329,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "This is the rule-based scorer. ML ensemble scorer is a future upgrade."
     },
     {
