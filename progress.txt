@@ -16,6 +16,9 @@
 - Tenant scoping: use `withTenantFilter(tenantId, { ...where })` to add tenantId to Prisma queries
 - Role hierarchy: ADMIN > SENIOR_UNDERWRITER > UNDERWRITER (hierarchy); SIU_INVESTIGATOR, COMPLIANCE_OFFICER (independent); BROKER (restricted)
 - BROKER role is auto-blocked from non-portal API paths by `withTenant` middleware
+- S3 client: `src/lib/s3.ts` with `uploadToS3(tenantId, submissionId, documentId, fileName, buffer, contentType)` returning the s3Key
+- S3 key path format: `{tenantId}/{submissionId}/{documentId}/{filename}`
+- Multipart uploads: use `req.formData()` in App Router, iterate entries with `instanceof File` check
 ---
 
 ## 2026-02-15 - US-001
@@ -131,4 +134,20 @@
   - Role hierarchy is only for the underwriting line (ADMIN > SENIOR_UNDERWRITER > UNDERWRITER). SIU_INVESTIGATOR and COMPLIANCE_OFFICER are independent - they only match themselves or ADMIN
   - BROKER is auto-blocked from non-portal paths (regex patterns in BROKER_ALLOWED_PATTERNS) within the withTenant middleware
   - API key auth bypasses role checks in withRole (API key permissions are handled separately)
+---
+
+## 2026-02-15 - US-008
+- What was implemented: Document upload API endpoint with S3 storage and submission creation
+- Files changed:
+  - package.json (added @aws-sdk/client-s3 dependency)
+  - src/lib/s3.ts (new: S3 client utility with uploadToS3 function, path format: {tenantId}/{submissionId}/{documentId}/{filename})
+  - src/app/api/submissions/route.ts (new: POST /api/submissions for multipart file upload + submission creation, GET /api/submissions for paginated listing)
+  - prd.json (marked US-008 as passes: true)
+- **Learnings for future iterations:**
+  - Next.js App Router supports `req.formData()` natively for multipart form data - no extra middleware needed
+  - File objects from formData have `.arrayBuffer()` method to get buffer for S3 upload
+  - Use `withTenant` wrapper from rbac.ts for routes accessible by all authenticated roles (including BROKER)
+  - Broker submissions endpoint is already in BROKER_ALLOWED_PATTERNS in rbac.ts
+  - Document records are created before S3 upload so we have the document ID for the S3 key path; s3Key is updated after successful upload
+  - File type validation uses both MIME type and file extension as fallback (browsers may send generic MIME types)
 ---
