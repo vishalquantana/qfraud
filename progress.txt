@@ -42,6 +42,9 @@
 - Audit logging: use `logAudit()` from `src/services/audit-log.ts` for all user-initiated actions; IP address from `x-forwarded-for` or `x-real-ip` headers
 - Config API routes: `src/app/api/config/thresholds/` — ADMIN-only, use `withRole(["ADMIN"])`, all mutations audit-logged with THRESHOLD_CHANGED action
 - Webhooks: `dispatchWebhookEvent(tenantId, event, data)` from `src/services/webhooks.ts` to fire events to tenant subscribers; HMAC-SHA256 signature in `X-Webhook-Signature` header
+- Portal layout: `src/app/portal/layout.tsx` is a server component that loads WhiteLabelConfig; wraps children in `PortalShell` (client) which provides `SessionProvider` and CSS variables for theming
+- Portal white-label CSS vars: `--portal-primary`, `--portal-secondary`, `--portal-accent` set on PortalShell, consumed by child components via `var()` references and Tailwind arbitrary values like `text-[var(--portal-primary)]`
+- Portal tenant resolution: uses `DEFAULT_TENANT_SLUG` env var; production should parse subdomain from host header
 ---
 
 ## 2026-02-15 - US-009
@@ -482,4 +485,27 @@
   - Secret is returned only on POST creation response; GET endpoint omits the secret for security
   - DELETE endpoint soft-deletes by setting `isActive: false` rather than hard deleting the record
   - Event types: submission.processed, submission.approved, submission.declined, submission.escalated, fraud.flag_raised, siu.case_created
+---
+
+## 2026-02-15 - US-029
+- What was implemented: Submission portal layout with white-label theming and login page
+- Files changed:
+  - src/app/portal/layout.tsx (new: server-side portal layout that loads WhiteLabelConfig for tenant by slug)
+  - src/app/portal/page.tsx (new: portal home redirects to /portal/submissions)
+  - src/app/portal/login/page.tsx (new: login page with email/password form, styled with tenant branding via CSS variables)
+  - src/app/portal/submissions/page.tsx (new: placeholder submissions list page for navigation)
+  - src/components/portal/PortalShell.tsx (new: client component wrapping SessionProvider, header, main content, footer with white-label config)
+  - src/components/portal/PortalHeader.tsx (new: responsive header with tenant logo/name, nav links, sign out button, mobile navigation)
+  - src/app/api/portal/config/route.ts (new: GET /api/portal/config?slug= endpoint for fetching tenant white-label config)
+  - .env.example (added DEFAULT_TENANT_SLUG)
+  - prd.json (marked US-029 as passes: true)
+- **Learnings for future iterations:**
+  - Portal white-label theming uses CSS custom properties (`--portal-primary`, `--portal-secondary`, `--portal-accent`) set on the shell wrapper div, consumed by child components via `var()` references
+  - Tenant slug resolved from `DEFAULT_TENANT_SLUG` env var (production would use subdomain/host header parsing)
+  - PortalShell is a client component wrapping SessionProvider — portal layout is a server component that fetches config and passes it down
+  - No Quantana branding appears anywhere in the portal — only tenant name/logo displayed
+  - Login page uses NextAuth's `signIn("credentials", { redirect: false })` for client-side auth flow with error handling
+  - Footer dynamically shows tenant branding, legal links, and support contact from WhiteLabelConfig
+  - Responsive design: mobile navigation bar collapses below md breakpoint, user name hidden on small screens
+  - Next.js Image component required for external logo URLs (lint warning with plain `<img>`)
 ---
