@@ -28,6 +28,8 @@
 - Prisma nullable JSON where: don't use `{ not: null }` (type error), filter without it and check `!doc.extractedData` at runtime
 - pdf-parse v2 metadata: use `getInfo()` → `InfoResult` with `.info`, `.total`, `.getDateNode()` for parsed dates; `getText()` → `TextResult` with `.text`
 - Forensic services: fetch document with `include: { submission: true }`, create FraudIndicator with category FORENSIC per check
+- Detection services pattern: `src/services/detection-statistical.ts` — main function fetches submission for tenantId, delegates to parallel check functions via Promise.all, each creates FraudIndicator with relevant category
+- Industry benchmarks: `src/services/industry-benchmarks.ts` — `getBenchmark(naicsCode)` returns COGS margin range, payroll-per-head range, max revenue growth by 2-digit NAICS sector code
 ---
 
 ## 2026-02-15 - US-009
@@ -274,4 +276,19 @@
   - For detecting personal names in PDF metadata, use a two-pass approach: (1) exclude known software patterns, (2) check for 2-4 capitalized words pattern
   - Multiple PDF producers check: compare `producer` vs `creator` fields (stripped of version numbers) — different base names suggest document assembly from multiple sources
   - Image-only PDF detection: use text layer length threshold (>50 chars = has text layer)
+---
+
+## 2026-02-15 - US-017
+- What was implemented: Statistical anomaly detection service with 4 checks: round numbers, revenue growth, COGS margin, payroll-per-head
+- Files changed:
+  - src/services/detection-statistical.ts (new: detectStatisticalAnomalies function orchestrating 4 parallel checks)
+  - src/services/industry-benchmarks.ts (new: NAICS sector-code-to-benchmark lookup table with COGS margin, payroll-per-head, and revenue growth ranges)
+  - prd.json (marked US-017 as passes: true)
+- **Learnings for future iterations:**
+  - Statistical detection pattern: main function fetches submission, then delegates to parallel check functions (round numbers, revenue growth, COGS margin, payroll-per-head) via Promise.all
+  - Industry benchmarks keyed by 2-digit NAICS sector code — use `getBenchmark(naicsCode)` which auto-strips to 2-digit prefix and falls back to DEFAULT_BENCHMARK
+  - Round-number detection checks exact $100K multiples across ALL financial fields (ACORD 125 revenue/premium, ACORD 130 payroll, financial statement revenue/COGS/netIncome/assets/liabilities)
+  - COGS margin deviation threshold is 15 percentage points from the expected range edges (not relative %)
+  - Payroll-per-head uses cascading employee count source: prefer ACORD 125 `numberOfEmployees`, fallback to summing ACORD 130 classification employee counts
+  - Revenue growth uses ACORD 125 as "current" revenue and financial statement as "prior year" — this is a heuristic that works for applications submitted with last fiscal year financials
 ---
