@@ -71,7 +71,7 @@ export function hasAnyRole(userRole: string, allowedRoles: string[]): boolean {
  */
 const BROKER_ALLOWED_PATTERNS = [
   /^\/api\/submissions$/, // POST (submit), GET (list own)
-  /^\/api\/submissions\/[^/]+$/, // GET (view own submission)
+  /^\/api\/submissions\/[^/]+$/, // GET (view own submission detail)
   /^\/api\/submissions\/[^/]+\/documents/, // Document operations on own submissions
   /^\/api\/auth\//, // Auth endpoints
 ];
@@ -102,7 +102,7 @@ export interface TenantScopedRequest {
  */
 export function withTenantFilter<T extends Record<string, unknown>>(
   tenantId: string,
-  where?: T,
+  where?: T
 ): T & { tenantId: string } {
   return { ...where, tenantId } as T & { tenantId: string };
 }
@@ -111,7 +111,7 @@ export function withTenantFilter<T extends Record<string, unknown>>(
 
 type TenantScopedHandler = (
   ctx: TenantScopedRequest,
-  params?: Record<string, string>,
+  params?: Record<string, string>
 ) => Promise<NextResponse>;
 
 /**
@@ -121,7 +121,7 @@ type TenantScopedHandler = (
 export function withTenant(handler: TenantScopedHandler) {
   return async (
     req: NextRequest,
-    context?: { params?: Promise<Record<string, string>> },
+    context?: { params?: Promise<Record<string, string>> }
   ) => {
     const auth = await extractAuth(req);
     if (!auth) {
@@ -136,7 +136,7 @@ export function withTenant(handler: TenantScopedHandler) {
       const pathname = new URL(req.url).pathname;
       if (!isBrokerAllowedPath(pathname)) {
         return forbiddenResponse(
-          "Broker role can only access submission portal endpoints",
+          "Broker role can only access submission portal endpoints"
         );
       }
     }
@@ -155,10 +155,7 @@ export function withTenant(handler: TenantScopedHandler) {
  * Usage:
  *   export const GET = withRole(["ADMIN", "UNDERWRITER"], async (ctx) => { ... });
  */
-export function withRole(
-  allowedRoles: string[],
-  handler: TenantScopedHandler,
-) {
+export function withRole(allowedRoles: string[], handler: TenantScopedHandler) {
   return withTenant(async (ctx, params) => {
     // API key auth bypasses role checks (permissions are checked separately)
     if (ctx.auth.type === "apikey") {
@@ -168,7 +165,7 @@ export function withRole(
     const user = ctx.auth.user as AuthUser;
     if (!hasAnyRole(user.role, allowedRoles)) {
       return forbiddenResponse(
-        `Access denied. Required role: ${allowedRoles.join(" or ")}`,
+        `Access denied. Required role: ${allowedRoles.join(" or ")}`
       );
     }
 

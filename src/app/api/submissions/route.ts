@@ -50,7 +50,9 @@ function getContentType(file: File): string {
     ".tiff": "image/tiff",
     ".tif": "image/tiff",
   };
-  return ext ? (map[ext] ?? "application/octet-stream") : "application/octet-stream";
+  return ext
+    ? (map[ext] ?? "application/octet-stream")
+    : "application/octet-stream";
 }
 
 // ─── POST /api/submissions ──────────────────────────────
@@ -61,7 +63,7 @@ export const POST = withTenant(async (ctx) => {
   if (!userId) {
     return NextResponse.json(
       { error: "API key auth requires a user context for submissions" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -72,7 +74,7 @@ export const POST = withTenant(async (ctx) => {
   } catch {
     return NextResponse.json(
       { error: "Invalid multipart form data" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -80,7 +82,7 @@ export const POST = withTenant(async (ctx) => {
   if (!insuredName || typeof insuredName !== "string") {
     return NextResponse.json(
       { error: "insuredName is required" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -98,14 +100,14 @@ export const POST = withTenant(async (ctx) => {
   if (files.length === 0) {
     return NextResponse.json(
       { error: "At least one file is required" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   if (files.length > MAX_FILES) {
     return NextResponse.json(
       { error: `Maximum ${MAX_FILES} files per submission` },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -125,14 +127,14 @@ export const POST = withTenant(async (ctx) => {
       {
         error: `Invalid file type(s): ${invalidFiles.join(", ")}. Accepted: PDF, XLSX, DOCX, JPG, PNG, TIFF`,
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   if (totalSize > MAX_TOTAL_SIZE) {
     return NextResponse.json(
       { error: `Total file size exceeds 500MB limit` },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -182,7 +184,7 @@ export const POST = withTenant(async (ctx) => {
         document.id,
         file.name,
         buffer,
-        getContentType(file),
+        getContentType(file)
       );
 
       // Update document with S3 key
@@ -222,7 +224,7 @@ export const POST = withTenant(async (ctx) => {
       status: submission.status,
       documents: documentResults,
     },
-    { status: 201 },
+    { status: 201 }
   );
 });
 
@@ -235,7 +237,7 @@ export const GET = withTenant(async (ctx) => {
   const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10));
   const limit = Math.min(
     100,
-    Math.max(1, parseInt(url.searchParams.get("limit") ?? "20", 10)),
+    Math.max(1, parseInt(url.searchParams.get("limit") ?? "20", 10))
   );
   const skip = (page - 1) * limit;
 
@@ -245,6 +247,27 @@ export const GET = withTenant(async (ctx) => {
   if (status) where.status = status;
   const severity = url.searchParams.get("severity");
   if (severity) where.severity = severity;
+
+  // Date range filter
+  const dateFrom = url.searchParams.get("dateFrom");
+  const dateTo = url.searchParams.get("dateTo");
+  if (dateFrom || dateTo) {
+    const createdAt: Record<string, Date> = {};
+    if (dateFrom) createdAt.gte = new Date(dateFrom);
+    if (dateTo) createdAt.lte = new Date(dateTo);
+    where.createdAt = createdAt;
+  }
+
+  // Broker filter (by submitter email or name)
+  const broker = url.searchParams.get("broker");
+  if (broker) {
+    where.submitter = {
+      OR: [
+        { name: { contains: broker, mode: "insensitive" } },
+        { email: { contains: broker, mode: "insensitive" } },
+      ],
+    };
+  }
 
   // Brokers can only see their own submissions
   const userId = getUserId(auth);
@@ -258,6 +281,7 @@ export const GET = withTenant(async (ctx) => {
       include: {
         documents: { select: { id: true, fileName: true, status: true } },
         submitter: { select: { id: true, name: true, email: true } },
+        assignedUnderwriter: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
       skip,

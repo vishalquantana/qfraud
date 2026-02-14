@@ -36,6 +36,10 @@
 - Contents-to-building ratio ranges by occupancy: retail 20-40%, manufacturing 30-60%, office 10-30%, warehouse 15-50%, restaurant 20-45%; use `classifyOccupancy()` to map freeform occupancy strings
 - Risk scoring: `src/services/scoring-engine.ts` — `calculateRiskScore(submissionId)` aggregates non-overridden FraudIndicators, returns ScoreBreakdown with totalScore, severity, and per-category points
 - Routing engine: `src/services/routing-engine.ts` — `routeSubmission(submissionId)` uses ThresholdConfig (per-LOB → global → defaults) to auto-approve, escalate, refer to SIU, or assign standard review; creates AuditLog for each decision
+- Dynamic API routes: use `[id]` folder naming in `src/app/api/`, params accessed via 2nd arg in withTenant/withRole handlers (e.g., `params?.id`)
+- Notification service: `sendNotification(type, recipientEmail, tenantId, data)` — 4 args, tenantId is required 3rd argument
+- Prisma enum in withTenantFilter: cast string literals to enum type (e.g., `"SIU_INVESTIGATOR" as Role`) when building where clauses via withTenantFilter
+- Audit logging: use `logAudit()` from `src/services/audit-log.ts` for all user-initiated actions; IP address from `x-forwarded-for` or `x-real-ip` headers
 ---
 
 ## 2026-02-15 - US-009
@@ -419,4 +423,24 @@
   - From address parsing handles both raw email (`user@example.com`) and formatted (`John Smith <user@example.com>`) via angle bracket extraction
   - Insured name derived from email subject line with `fwd:` and `re:` prefixes stripped
   - Error notification sent when no valid attachments found; success acknowledgment includes tracking URL with portal link
+---
+
+## 2026-02-15 - US-026
+- What was implemented: Core API endpoints for submissions CRUD and status management
+- Files changed:
+  - src/app/api/submissions/[id]/route.ts (new: GET /api/submissions/:id with full detail, documents, submitter, assigned underwriter, fraud indicator count)
+  - src/app/api/submissions/[id]/status/route.ts (new: PATCH /api/submissions/:id/status with approve/decline/request-info/refer-to-siu actions, justification required for decline, audit logging, notifications, SIU case creation)
+  - src/app/api/submissions/[id]/indicators/route.ts (new: GET /api/submissions/:id/indicators with category/severity filtering, ordered by severity)
+  - src/app/api/submissions/[id]/risk-report/route.ts (new: GET /api/submissions/:id/risk-report with score breakdown by category, indicator counts, explainability text, prior submissions from same entity)
+  - src/app/api/submissions/route.ts (updated: GET /api/submissions with dateRange and broker filters, added assignedUnderwriter include)
+  - src/lib/rbac.ts (updated: BROKER_ALLOWED_PATTERNS — confirmed existing patterns sufficient for broker access)
+  - prd.json (marked US-026 as passes: true)
+- **Learnings for future iterations:**
+  - Next.js App Router dynamic route params: use `[id]` folder naming, params available as 2nd arg in `withTenant`/`withRole` handler callbacks
+  - Broker access control: withTenant middleware checks BROKER_ALLOWED_PATTERNS first, then individual endpoints enforce ownership (submitterId === userId)
+  - sendNotification requires 4 args: `(type, recipientEmail, tenantId, data)` — don't forget tenantId as 3rd arg
+  - Prisma enum typing: use `"SIU_INVESTIGATOR" as Role` when passing string literals to Prisma where clauses that expect enum types via `withTenantFilter`
+  - Risk report explainability: generate plain-English summaries from indicator severity/category aggregations for underwriter consumption
+  - Prior submissions: query by insuredName for same-entity history linking, exclude current submission with `{ not: id }`
+  - Severity ordering: use `{ severity: "asc" }` in Prisma orderBy to get CRITICAL first (enum order: CRITICAL, HIGH, MEDIUM, LOW, CLEAN)
 ---
