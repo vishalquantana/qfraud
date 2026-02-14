@@ -84,6 +84,26 @@ async function main() {
     console.log(`  User: ${user.name} (${user.role})`);
   }
 
+  // Upsert default threshold config for test tenant
+  const existingThreshold = await prisma.thresholdConfig.findFirst({
+    where: { tenantId: tenant.id, lineOfBusiness: null },
+  });
+
+  if (!existingThreshold) {
+    await prisma.thresholdConfig.create({
+      data: {
+        tenantId: tenant.id,
+        lineOfBusiness: null,
+        autoApproveBelow: 20,
+        autoEscalateAbove: 70,
+        siuReferralOnCritical: true,
+      },
+    });
+    console.log("  Default ThresholdConfig created (global)");
+  } else {
+    console.log("  Default ThresholdConfig already exists (global)");
+  }
+
   console.log("Seed completed successfully.");
   await prisma.$disconnect();
 }

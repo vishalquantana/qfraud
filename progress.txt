@@ -63,3 +63,16 @@
   - Use `@@index` for columns frequently used in WHERE/ORDER BY clauses (tenantId, status, createdAt, submissionId)
   - DocumentType enum has 17 values covering all insurance document types including UNKNOWN as default
 ---
+
+## 2026-02-15 - US-004
+- What was implemented: Database schema for fraud indicators, audit logs, and threshold configs
+- Files changed:
+  - prisma/schema.prisma (added FraudIndicatorCategory enum, FraudIndicator model, AuditLog model, ThresholdConfig model; added reverse relation fields to Tenant, User, Submission, Document)
+  - prisma/migrations/20260215000002_add_fraud_indicators_audit_logs_thresholds/migration.sql (incremental SQL migration)
+  - prisma/seed.ts (added default ThresholdConfig upsert for test tenant)
+  - prd.json (marked US-004 as passes: true)
+- **Learnings for future iterations:**
+  - When a model has multiple relations to User (e.g., FraudIndicator.overriddenBy, AuditLog.user), use named relations like `@relation("IndicatorOverrides")` and `@relation("AuditLogUser")`
+  - ThresholdConfig uses `lineOfBusiness: null` for the global config; per-LOB overrides have a specific value
+  - Seed script uses `findFirst` + conditional `create` for ThresholdConfig since there's no natural unique constraint for upsert (tenantId + null lineOfBusiness)
+---

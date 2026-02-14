@@ -75,6 +75,19 @@ enum DocumentStatus {
   ERROR
 }
 
+enum FraudIndicatorCategory {
+  CROSS_DOC
+  FORENSIC
+  STATISTICAL
+  TEMPORAL
+  RATIO
+  ENTITY_INTEL
+  VISUAL_AI
+  NLP
+  API_VERIFY
+  RULES
+}
+
 // ─── Tenant ──────────────────────────────────────────────
 
 model Tenant {
@@ -88,9 +101,12 @@ model Tenant {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  users       User[]
-  submissions Submission[]
-  documents   Document[]
+  users            User[]
+  submissions      Submission[]
+  documents        Document[]
+  fraudIndicators  FraudIndicator[]
+  auditLogs        AuditLog[]
+  thresholdConfigs ThresholdConfig[]
 
   @@map("tenants")
 }
@@ -108,9 +124,11 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  tenant               Tenant       @relation(fields: [tenantId], references: [id])
-  submittedSubmissions Submission[] @relation("Submitter")
-  assignedSubmissions  Submission[] @relation("AssignedUnderwriter")
+  tenant               Tenant           @relation(fields: [tenantId], references: [id])
+  submittedSubmissions Submission[]     @relation("Submitter")
+  assignedSubmissions  Submission[]     @relation("AssignedUnderwriter")
+  indicatorOverrides   FraudIndicator[] @relation("IndicatorOverrides")
+  auditLogs            AuditLog[]       @relation("AuditLogUser")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -135,8 +153,10 @@ model Submission {
 
   tenant              Tenant   @relation(fields: [tenantId], references: [id])
   submitter           User     @relation("Submitter", fields: [submitterId], references: [id])
-  assignedUnderwriter User?    @relation("AssignedUnderwriter", fields: [assignedUnderwriterId], references: [id])
+  assignedUnderwriter User?            @relation("AssignedUnderwriter", fields: [assignedUnderwriterId], references: [id])
   documents           Document[]
+  fraudIndicators     FraudIndicator[]
+  auditLogs           AuditLog[]
 
   @@index([tenantId])
   @@index([status])
@@ -160,12 +180,85 @@ model Document {
   status                   DocumentStatus @default(UPLOADED)
   createdAt                DateTime      @default(now())
 
-  submission Submission @relation(fields: [submissionId], references: [id])
-  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  submission      Submission      @relation(fields: [submissionId], references: [id])
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  fraudIndicators FraudIndicator[]
 
   @@index([tenantId])
   @@index([submissionId])
   @@index([status])
   @@index([createdAt])
   @@map("documents")
+}
+
+// ─── FraudIndicator ──────────────────────────────────────
+
+model FraudIndicator {
+  id                    String                 @id @default(cuid())
+  submissionId          String
+  tenantId              String
+  documentId            String?
+  category              FraudIndicatorCategory
+  indicatorName         String
+  description           String
+  severity              Severity
+  evidence              Json
+  confidence            Float
+  recommendedAction     String?
+  isOverridden          Boolean                @default(false)
+  overriddenById        String?
+  overrideJustification String?
+  createdAt             DateTime               @default(now())
+
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  document     Document?  @relation(fields: [documentId], references: [id])
+  overriddenBy User?      @relation("IndicatorOverrides", fields: [overriddenById], references: [id])
+
+  @@index([tenantId])
+  @@index([submissionId])
+  @@index([category])
+  @@index([severity])
+  @@map("fraud_indicators")
+}
+
+// ─── AuditLog ────────────────────────────────────────────
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  tenantId     String
+  submissionId String?
+  userId       String?
+  action       String
+  details      Json
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  submission Submission? @relation(fields: [submissionId], references: [id])
+  user       User?       @relation("AuditLogUser", fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([submissionId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─── ThresholdConfig ─────────────────────────────────────
+
+model ThresholdConfig {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  lineOfBusiness       String?
+  autoApproveBelow     Int      @default(20)
+  autoEscalateAbove    Int      @default(70)
+  siuReferralOnCritical Boolean @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("threshold_configs")
 }
