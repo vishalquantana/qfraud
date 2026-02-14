@@ -184,3 +184,17 @@
   - Each field extractor returns `{ value, confidence: { confidence, source } }` or null — this feeds both the extracted value and the `_metadata` confidence map
   - `extractField()` helper tries multiple regex patterns in order and returns first match — good for ACORD forms where labels vary between versions
 ---
+
+## 2026-02-15 - US-011
+- What was implemented: ACORD 130 (Workers' Comp) and ACORD 140 (Property) data extraction services
+- Files changed:
+  - src/services/extraction-acord130.ts (new: extractAcord130 function with payroll classification table parsing, e-mod rate, prior carrier extraction)
+  - src/services/extraction-acord140.ts (new: extractAcord140 function with multi-location property parsing, building/contents/BI values, construction details, TIV and deductible)
+  - prd.json (marked US-011 as passes: true)
+- **Learnings for future iterations:**
+  - ACORD 130 payroll classification tables vary widely — use two-pass approach: first try full pattern (code + description + employee count + payroll), then fallback to simpler pattern (code + description + optional payroll)
+  - ACORD 140 property locations are often numbered (LOC #1, LOCATION 2) — split text on location headers to parse each location block independently
+  - For extraction services with nested array fields (like payrollByClassification, propertyLocations), return `[]` default instead of `null` for easier downstream consumption
+  - Each extraction service follows same pattern but with its own local `extractField`, `parseCurrency`, `parseInteger`, `extractPdfText` helpers — these could be refactored to a shared module if more extractors are needed
+  - Construction type extraction uses both regex patterns and keyword matching as fallback for common types (FRAME, JOISTED MASONRY, FIRE RESISTIVE, etc.)
+---
