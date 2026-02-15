@@ -606,7 +606,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 35,
-      "passes": false,
+      "passes": true,
       "notes": "Use recharts or chart.js for the gauge and bar charts."
     },
     {

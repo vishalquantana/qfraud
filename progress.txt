@@ -50,6 +50,8 @@
 - Dashboard dark mode: add `dark:` variant classes to all dashboard components. Toggle via `document.documentElement.classList.toggle("dark")`
 - Dashboard role-based nav: `navItems` array with optional `roles` field; SIU Cases = SIU_INVESTIGATOR+ADMIN, Configuration = ADMIN, Audit Trail = ADMIN+COMPLIANCE_OFFICER
 - @dnd-kit: use `useDroppable` for columns + `useDraggable` for cards; `DragOverlay` for drag preview; `PointerSensor` with distance constraint to separate clicks from drags
+- Recharts: use `ResponsiveContainer` wrapping `BarChart layout="vertical"` for horizontal bar charts; Tooltip formatter type is `(value: number | undefined) => [string, string]`
+- Dashboard detail pages: `mx-auto max-w-5xl space-y-6 p-4 sm:p-6` layout with rounded-xl bordered sections
 ---
 
 ## 2026-02-15 - US-009
@@ -610,4 +612,21 @@
   - Indicator counts fetched per-submission via `/api/submissions/:id/indicators` in parallel — could be optimized with a batch endpoint in the future
   - Bulk approve button only enables when LOW/CLEAN risk submissions are selected (per AC requirement)
   - Risk score gauge uses SVG circle with `strokeDasharray`/`strokeDashoffset` for the progress arc
+---
+
+## 2026-02-15 - US-035
+- What was implemented: Underwriter dashboard submission risk report detail view at /dashboard/submissions/:id
+- Files changed:
+  - src/app/dashboard/submissions/[id]/page.tsx (new: full risk report page with large gauge chart, category breakdown bar chart via Recharts, filterable/sortable indicator list with expandable evidence panels, explainability section, prior submissions table)
+  - package.json (added recharts dependency for chart visualizations)
+  - prd.json (marked US-035 as passes: true)
+- **Learnings for future iterations:**
+  - Recharts `Tooltip` formatter type: use `(value: number | undefined) => [string, string]` to satisfy strict TypeScript — the value param can be undefined
+  - Recharts `ResponsiveContainer` must have explicit height; for horizontal bar charts use `data.length * rowHeight + padding` formula
+  - Category breakdown bar chart uses `layout="vertical"` with `XAxis type="number" hide` and `YAxis type="category" dataKey="name"` for horizontal bars
+  - Evidence display: use camelCase-to-human-readable conversion with regex `key.replace(/([A-Z])/g, " $1")` for JSON evidence keys
+  - Indicator filtering/sorting is client-side since the risk-report API returns all indicators in one call
+  - Prior submissions table uses `group-hover:opacity-100` pattern to reveal View link on row hover
+  - Large risk gauge SVG uses viewBox="0 0 128 128" with r=54 for a bigger, more prominent display than the card version
+  - Dashboard detail pages use `mx-auto max-w-5xl space-y-6 p-4 sm:p-6` layout pattern
 ---
