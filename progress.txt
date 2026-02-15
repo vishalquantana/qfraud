@@ -802,3 +802,20 @@
   - Pagination helper: `generatePageNumbers()` creates a compact page list with ellipsis (1 ... 4 5 6 ... 20) for large page counts
   - Details summary: `summarizeDetails()` extracts key fields (reason, justification, status, action) for the truncated preview in the table row
 ---
+
+## 2026-02-15 - US-045
+- What was implemented: White-label settings configuration page at /dashboard/config/white-label (ADMIN only) with logo upload, color pickers, custom domain configuration, and legal/contact fields
+- Files changed:
+  - src/app/api/config/white-label/route.ts (new: GET for fetching current white-label config with defaults fallback, PUT for updating config fields with hex color validation, audit logging, upsert pattern)
+  - src/app/api/config/white-label/logo/route.ts (new: POST for logo upload to S3 with file type/size validation, stores S3 URL in WhiteLabelConfig, audit logging)
+  - src/app/dashboard/config/white-label/page.tsx (new: full white-label settings page with logo upload/preview, 3 color pickers with hex input and native color picker, live portal header preview, custom domain with CNAME instructions, custom email domain with SPF/DKIM setup guide, legal URLs and contact fields, sticky save bar with unsaved changes indicator, discard button)
+  - prd.json (marked US-045 as passes: true)
+- **Learnings for future iterations:**
+  - AuthContext union type: use `ctx.auth.type === "user" ? (ctx.auth.user as AuthUser) : null` pattern — direct `ctx.auth.user` access fails TS since API key auth doesn't have a `user` property
+  - Logo upload uses S3 key path `{tenantId}/branding/logo.{ext}` — different from document uploads which use `{tenantId}/{submissionId}/{documentId}/{filename}`
+  - WhiteLabelConfig upsert: use `prisma.whiteLabelConfig.upsert({ where: { tenantId }, ... })` since config may not exist yet for the tenant
+  - Color picker pattern: combine `<input type="color">` for visual picker with `<input type="text">` for hex input and a round color swatch preview
+  - Live portal header preview: render a mock header/button bar with actual color values applied via inline `style` prop for immediate visual feedback
+  - Reuses THRESHOLD_CHANGED audit action type since there's no dedicated WHITE_LABEL_CHANGED action in AuditAction union — future iteration could add specific action type
+  - Sticky save bar pattern: `sticky bottom-0 z-10` with `bg-white/95 backdrop-blur-sm` for semi-transparent footer that persists while scrolling
+---
