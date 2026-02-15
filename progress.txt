@@ -72,6 +72,8 @@
 - exif-reader v2: takes raw EXIF Buffer (not whole JPEG) — must extract APP1 segment from JPEG first; returns typed GPSInfo, Photo (DateTimeOriginal as Date), Image tags
 - GenAI forgery detection: `src/services/detection-genai-forgery.ts` — `detectGenAIForgery(documentId)` stub returning ForgeryDetectionResult interface for ML model swap-in; `matchTemplate(documentId)` rule-based structural comparison against TEMPLATE_LIBRARY config; both create FraudIndicator with category VISUAL_AI
 - Template matching uses pdf-parse v2 `getInfo()` for page count and `getText()` for keyword matching; template features defined per DocumentType in TEMPLATE_LIBRARY constant
+- Broker letter NLP: `src/services/analysis-broker-letter-nlp.ts` — `analyzeBrokerLetter(submissionId)` runs pressure, manipulation, concealment, and declination checks on BROKER_SUBMISSION documents with category NLP
+- NLP analysis pattern: keyword/regex pattern libraries (arrays of `{ pattern: RegExp, category: string }`) scanned with `scanForPatterns()` helper; match context extracted for evidence; confidence scales with match count
 ---
 
 ## 2026-02-15 - US-009
@@ -925,4 +927,20 @@
   - pdf-parse v2 `getInfo()` returns `{ info, total, getDateNode() }` — `total` is the page count
   - Template matching only works on PDF documents; non-PDF documents are skipped
   - Both functions create FraudIndicator with category VISUAL_AI, matching the existing image forensics pattern
+---
+
+## 2026-02-15 - US-052
+- What was implemented: Broker cover letter NLP analysis service for detecting concealment, pressure tactics, and manipulation in broker narratives
+- Files changed:
+  - src/services/analysis-broker-letter-nlp.ts (new: `analyzeBrokerLetter(submissionId)` with 4 NLP checks)
+  - prd.json (marked US-052 as passes: true)
+  - progress.txt (added progress entry and codebase patterns)
+- **Learnings for future iterations:**
+  - NLP service queries BROKER_SUBMISSION document type (must be status ANALYZED) — extracts text via pdf-parse v2
+  - Four checks: pressure language (MEDIUM), manipulation language (HIGH), concealment cross-ref with loss runs (CRITICAL), declination evidence (HIGH)
+  - Concealment check cross-references broker letter text against loss run extracted data — flags if significant claims exist but letter makes no mention of losses
+  - Pattern libraries use `{ pattern: RegExp, category: string }` arrays — easy to extend with new phrases
+  - `scanForPatterns()` deduplicates matched phrases and extracts surrounding context for evidence
+  - Confidence scales with match count: `Math.min(baseConfidence + matchCount * 0.1, maxConfidence)`
+  - All checks create FraudIndicator with category NLP — the first service to use this category
 ---

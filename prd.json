@@ -919,7 +919,7 @@
         "Typecheck passes"
       ],
       "priority": 52,
-      "passes": false,
+      "passes": true,
       "notes": "Start with keyword/regex patterns. Can upgrade to transformer-based intent detection later."
     },
     {
