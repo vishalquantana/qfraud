@@ -682,10 +682,28 @@
   - src/app/dashboard/config/users/page.tsx (new: user management page with table view showing name, email, role badge, status, created date; invite user modal with email/name/role fields; edit user modal with role dropdown and active toggle; user count summary in header)
   - prd.json (marked US-038 as passes: true)
 - **Learnings for future iterations:**
-  - User management API pattern: GET returns users + summary object with counts (total, active, activeUnderwriters) for the header display
+  - SIU case API: `withRole(["SIU_INVESTIGATOR", "ADMIN"])` for access; Prisma accessor is `prisma.sIUCase`; override field is `overriddenById` not `overriddenBy`
+- User management API pattern: GET returns users + summary object with counts (total, active, activeUnderwriters) for the header display
   - Self-deactivation prevention: check `authUser.id === targetUser.id` server-side in PATCH; disable toggle client-side when `session?.user?.email === user.email`
   - Invite flow: generates temp password with `crypto.randomBytes(16)` + bcrypt hash; in production this would be replaced with a proper email invitation link with password reset
   - Audit logging: uses `USER_LOGIN` action type as closest match since the AuditAction type doesn't have a USER_MANAGEMENT variant — future iteration should extend AuditAction
   - Role colors: each role gets a distinct color for visual differentiation in the table (purple=Admin, blue=UW, indigo=Senior UW, red=SIU, amber=Compliance, green=Broker)
   - Modal pattern: fixed inset-0 z-50 overlay with max-w-md centered dialog, consistent with threshold config save dialog
+---
+
+## 2026-02-15 - US-039
+- What was implemented: SIU case management API endpoints and case list page
+- Files changed:
+  - src/app/api/siu-cases/route.ts (new: GET /api/siu-cases with pagination, status filtering, includes submission details, assigned investigator, and indicator counts via groupBy)
+  - src/app/api/siu-cases/[id]/route.ts (new: GET /api/siu-cases/:id for case detail with indicators; PATCH /api/siu-cases/:id for status update, adding notes/evidence, resolution; feedback to ML pipeline on CONFIRMED_FRAUD/FALSE_POSITIVE)
+  - src/app/dashboard/siu-cases/page.tsx (replaced placeholder: full SIU case list page with table view, status filter, pagination, color-coded status badges, indicator counts, links to case detail page)
+  - prd.json (marked US-039 as passes: true)
+- **Learnings for future iterations:**
+  - SIU case API uses `withRole(["SIU_INVESTIGATOR", "ADMIN"])` — only these roles should access SIU case data
+  - Prisma model accessor for SIUCase is `prisma.sIUCase` (camelCase with leading lowercase 's')
+  - Fraud indicator override field is `overriddenById` (not `overriddenBy` which is the relation name) — always check schema field names vs relation names
+  - SIU case notes and evidence are JSON arrays — append to existing array by spreading `siuCase.notes as Array<...>` and adding new entry, then `JSON.parse(JSON.stringify())` for Prisma Json type
+  - Terminal status changes (CONFIRMED_FRAUD, FALSE_POSITIVE) should feed back to FraudIndicator records via `updateMany` — marks all indicators as overridden for false positives
+  - Indicator counts per case: use `prisma.fraudIndicator.groupBy` with `by: ["submissionId"]` for efficient batch count across multiple submissions
+  - SIU case auto-creation happens in both routing-engine.ts and submissions/[id]/status/route.ts (manual referral) — the case list page shows cases from both sources
 ---
