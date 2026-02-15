@@ -68,6 +68,8 @@
 - swagger-ui-react: use `dynamic(() => import("swagger-ui-react"), { ssr: false })` for Next.js SSR compatibility
 - FraudIndicator field is `recommendedAction` (camelCase), NOT `recommended_action` — Prisma auto-maps snake_case DB columns to camelCase
 - Entity verification: `src/services/verification-sos.ts` — `verifyEntity(submissionId)` with mock SOS API, retry logic, and 4 checks (not found, inactive, recent incorporation, virtual office address) with category ENTITY_INTEL
+- Image forensics: `src/services/forensics-image.ts` — `analyzeImage(documentId)` for per-image EXIF/ELA/copy-move checks; `analyzeSubmissionImages(submissionId)` for cross-photo timestamp analysis; category VISUAL_AI
+- exif-reader v2: takes raw EXIF Buffer (not whole JPEG) — must extract APP1 segment from JPEG first; returns typed GPSInfo, Photo (DateTimeOriginal as Date), Image tags
 ---
 
 ## 2026-02-15 - US-009
@@ -888,4 +890,22 @@
   - Mock APIs use deterministic keyword-based responses: EIN starting with "99" → 3 months old, "88" → 1 month old; entity names with "no web"/"nowebsite" → no web presence
   - Address classification checks both ACORD 125 addresses (physical + mailing) AND entity document registered agent address — creates separate FraudIndicator per flagged address
   - All checks run in parallel via Promise.all following the detection service pattern with category ENTITY_INTEL
+---
+
+## 2026-02-15 - US-050
+- What was implemented: Image forensics service with EXIF extraction, GPS mismatch detection, stripped EXIF flagging, timestamp cluster analysis, and ELA/copy-move stubs
+- Files changed:
+  - src/services/forensics-image.ts (new: analyzeImage per-document function with 3 EXIF checks + 2 ML stubs; analyzeSubmissionImages for cross-photo timestamp analysis)
+  - package.json (added exif-reader v2 dependency for EXIF metadata extraction)
+  - prd.json (marked US-050 as passes: true)
+- **Learnings for future iterations:**
+  - exif-reader v2 takes a Buffer of the raw EXIF/TIFF data (NOT the whole JPEG). Must manually find the APP1 marker in JPEG files and extract the TIFF segment after the "Exif\0\0" header
+  - exif-reader v2 returns typed objects: `GPSInfo` for GPS, `Photo` for DateTimeOriginal/DateTimeDigitized (as Date objects), `Image` for Make/Model/DateTime/Software
+  - GPS coordinates come as DMS arrays [degrees, minutes, seconds] with Ref strings ("N"/"S"/"E"/"W") — convert to decimal with the formula: degrees + minutes/60 + seconds/3600, negated for S/W
+  - Haversine formula for GPS distance: uses Earth's radius in miles (3958.8) for >1 mile threshold comparison
+  - Image forensics has two entry points: `analyzeImage(documentId)` for per-image checks (EXIF, ELA, copy-move) and `analyzeSubmissionImages(submissionId)` for cross-photo analysis (timestamp clusters)
+  - ELA and copy-move stubs return `{ confidence: 0.1 }` (below the 0.7 threshold) so they never create fraud indicators until ML models are integrated
+  - Timestamp cluster check requires ≥3 photos with valid EXIF timestamps; flags if all photos span <10 minutes (suggesting cursory/staged inspection)
+  - Geocoding stub returns null — GPS vs address comparison requires a geocoding API (Google Maps, Mapbox) for production; the comparison logic and Haversine formula are fully implemented and ready
+  - Category VISUAL_AI is already in the Prisma FraudIndicatorCategory enum — use it for all image forensics indicators
 ---

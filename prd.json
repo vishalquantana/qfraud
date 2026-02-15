@@ -884,7 +884,7 @@
         "Typecheck passes"
       ],
       "priority": 50,
-      "passes": false,
+      "passes": true,
       "notes": "Use exif-reader for EXIF extraction. ELA and copy-move are ML-heavy - stub for now."
     },
     {
