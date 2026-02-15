@@ -66,6 +66,8 @@
 - API key management: `/api/config/api-keys` (GET list, POST create) and `/api/config/api-keys/:id` (PATCH revoke), ADMIN-only; keys use `qsk_` prefix + 32 random bytes, stored as SHA-256 hash
 - OpenAPI spec: served at `/api/docs/openapi.json` as static JSON from route handler; covers all public API endpoints
 - swagger-ui-react: use `dynamic(() => import("swagger-ui-react"), { ssr: false })` for Next.js SSR compatibility
+- FraudIndicator field is `recommendedAction` (camelCase), NOT `recommended_action` — Prisma auto-maps snake_case DB columns to camelCase
+- Entity verification: `src/services/verification-sos.ts` — `verifyEntity(submissionId)` with mock SOS API, retry logic, and 4 checks (not found, inactive, recent incorporation, virtual office address) with category ENTITY_INTEL
 ---
 
 ## 2026-02-15 - US-009
@@ -840,4 +842,20 @@
   - OpenAPI spec served as static JSON object from a route handler — no build step needed, easy to maintain inline
   - Reuses THRESHOLD_CHANGED audit action type for API key create/revoke since AuditAction union doesn't have API_KEY_CREATED/REVOKED variants
   - Sandbox toggle is a UI-only indicator in MVP — production would switch API key context between environments
+---
+
+## 2026-02-15 - US-047
+- What was implemented: SOS entity verification service that checks business entities against Secretary of State records (mock API for MVP)
+- Files changed:
+  - src/services/verification-sos.ts (new: verifyEntity function with mock SOS API, 4 fraud checks — entity not found, inactive/dissolved, recent incorporation with mature ops, virtual office/PO box agent address)
+  - prd.json (marked US-047 as passes: true)
+- **Learnings for future iterations:**
+  - Entity verification follows detection service pattern: main function fetches submission for tenantId, extracts entity info from ACORD 125 or entity docs, queries external API, runs parallel checks
+  - Prisma FraudIndicator field is `recommendedAction` (camelCase), NOT `recommended_action` (snake_case) — Prisma auto-maps DB column names
+  - Mock SOS API uses deterministic responses based on entity name keywords (phantom/shell → NOT_FOUND, dissolved/inactive/suspended → matching status) for testability
+  - Entity info extraction cascades: ACORD 125 (businessName + physicalAddress) → entity docs (entityName + stateOfIncorporation)
+  - State code extraction from address uses regex patterns: ", CA 90210" or ", CA," or trailing "CA"
+  - Virtual office/PO box detection uses keyword matching: "po box", "virtual office", "mailbox", "pmb" etc.
+  - Retry wrapper with exponential backoff (3 attempts, 1s/2s/4s delays) for API resilience; graceful fallback to manual verification on total failure
+  - Mature operations check requires ALL three conditions: incorporated <2 years AND at least one maturity indicator (year established mismatch, high revenue >$1M, many employees >20)
 ---

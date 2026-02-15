@@ -832,7 +832,7 @@
         "Typecheck passes"
       ],
       "priority": 47,
-      "passes": false,
+      "passes": true,
       "notes": "Start with a mock API interface that can be swapped for real state APIs."
     },
     {
