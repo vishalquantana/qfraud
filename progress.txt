@@ -77,6 +77,7 @@
 - VIN decoder: `src/services/verification-vin.ts` — `decodeVIN(vin)` calls NHTSA public API, `validateFleetVINs(submissionId)` checks VIN mismatches (CRITICAL) and non-CDL drivers on commercial vehicles (HIGH) with category API_VERIFY
 - Professional license verification: `src/services/verification-professional-license.ts` — `verifyProfessionalLicense(submissionId)` checks all PROFESSIONAL_LICENSE documents against mock state board API; flags not found (CRITICAL), expired/suspended/revoked (CRITICAL), scope mismatch (HIGH) with category API_VERIFY
 - External API verification services: use `withRetry()` for external API calls; handle API failures gracefully (log + skip); use `findExtractedData<T>()` to get prior extraction results
+- Entity resolution: `src/services/resolution-entity.ts` — `resolveEntities(submissionId)` extracts entity identifiers from ACORD_125/ENTITY_DOC/COI docs, fuzzy-matches (Levenshtein) names/addresses, exact-matches EIN/phone across tenant submissions; category ENTITY_INTEL
 ---
 
 ## 2026-02-15 - US-009
@@ -965,4 +966,18 @@
   - ProfessionalLicenseExtractedData type defined in verification-professional-license.ts — future US should add extraction-professional-license.ts
   - Both services use `findExtractedData<T>()` pattern — professional license version returns array (multiple docs possible), VIN version returns single
   - Use `AbortSignal.timeout(10000)` for fetch timeout control instead of manual AbortController
+---
+
+## 2026-02-15 - US-054
+- What was implemented: Cross-submission entity resolution service that detects the same entity appearing across unrelated submissions (fraud ring detection)
+- Files changed:
+  - src/services/resolution-entity.ts (new: resolveEntities function with 5 cross-submission checks)
+  - prd.json (marked US-054 as passes: true)
+- **Learnings for future iterations:**
+  - Entity resolution requires extracting identifiers from multiple document types (ACORD_125, ENTITY_DOC, COI) — use the `findExtractedData<T>()` helper for each
+  - Use Levenshtein distance for fuzzy name/address matching (threshold ~0.8 for names, ~0.75 for addresses), exact match for EIN/phone
+  - Phone normalization: strip non-digits, take last 10 for comparison; EIN normalization: strip non-digits, require 9 chars
+  - Category for cross-submission entity matching is ENTITY_INTEL (not CROSS_DOC — that's for cross-document validation within a single submission)
+  - Agent appetite check uses submission status (DECLINED, REFERRED_TO_SIU) to determine "outside appetite" — needs at least 4 submissions for the 25% threshold to be meaningful
+  - Service function is `resolveEntities(submissionId)` — exported from `src/services/resolution-entity.ts`
 ---

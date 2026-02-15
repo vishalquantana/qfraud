@@ -956,7 +956,7 @@
         "Typecheck passes"
       ],
       "priority": 54,
-      "passes": false,
+      "passes": true,
       "notes": "This is the beginning of the network graph moat (Phase 3 builds on this)."
     },
     {
