@@ -73,6 +73,7 @@ const BROKER_ALLOWED_PATTERNS = [
   /^\/api\/submissions$/, // POST (submit), GET (list own)
   /^\/api\/submissions\/[^/]+$/, // GET (view own submission detail)
   /^\/api\/submissions\/[^/]+\/documents/, // Document operations on own submissions
+  /^\/api\/submissions\/[^/]+\/confirm$/, // Confirm submission
   /^\/api\/auth\//, // Auth endpoints
 ];
 

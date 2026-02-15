@@ -525,3 +525,21 @@
   - File type icons: map extensions to color classes (pdf=red, xlsx=green, docx=blue, images=purple) for visual differentiation in the file list
   - After submission POST, redirect to `/portal/submissions/${submissionId}/review` for the classification review step (US-031)
 ---
+
+## 2026-02-15 - US-031
+- What was implemented: Classification review and validation results page for the broker submission portal
+- Files changed:
+  - src/app/portal/submissions/[id]/review/page.tsx (new: review page with document classification list, type correction dropdowns, confidence badges, validation results grouped by severity, re-upload button, confirm & submit)
+  - src/app/api/submissions/[id]/documents/[docId]/route.ts (new: PATCH for document type correction, PUT for document re-upload/replacement)
+  - src/app/api/submissions/[id]/confirm/route.ts (new: POST to confirm submission and trigger processing pipeline)
+  - src/lib/rbac.ts (updated: added `/api/submissions/:id/confirm` to BROKER_ALLOWED_PATTERNS)
+  - prd.json (marked US-031 as passes: true)
+- **Learnings for future iterations:**
+  - Validation results are generated client-side from document data — no fraud detection logic shown to brokers, only data quality issues (unknown type, low confidence, processing errors, missing common docs)
+  - Document type correction sets classificationConfidence to 1.0 since it's a manual user selection
+  - Re-upload (PUT) resets document to UPLOADED status with UNKNOWN type and null confidence, clearing extractedData for re-processing
+  - Confirm endpoint fires `processSubmission()` asynchronously (fire-and-forget) to avoid blocking the HTTP response
+  - Confirm endpoint blocks if any documents still have UNKNOWN type — enforces classification before processing
+  - Hidden file input pattern: store `reuploadingDocId` in state, trigger `fileInputRef.current.click()`, handle file in onChange
+  - BROKER_ALLOWED_PATTERNS in rbac.ts must include any new API paths brokers need access to — check and update when adding new broker-facing endpoints
+---
