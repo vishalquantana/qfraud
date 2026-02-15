@@ -543,3 +543,20 @@
   - Hidden file input pattern: store `reuploadingDocId` in state, trigger `fileInputRef.current.click()`, handle file in onChange
   - BROKER_ALLOWED_PATTERNS in rbac.ts must include any new API paths brokers need access to — check and update when adding new broker-facing endpoints
 ---
+
+## 2026-02-15 - US-032
+- What was implemented: Submission portal submission list page and detail/status page for brokers
+- Files changed:
+  - src/app/portal/submissions/page.tsx (replaced: full submission list with table view, status badges, filters by status/date range/insured name search, pagination, INFO_NEEDED notification badge, mobile card view, empty state)
+  - src/app/portal/submissions/[id]/page.tsx (new: submission detail page with status banner, submission info, document list, audit log timeline, info-needed messages from underwriter, auto-refresh while processing)
+  - src/components/portal/PortalHeader.tsx (updated: added notification badge on "My Submissions" nav link showing count of INFO_NEEDED submissions, polls every 30 seconds)
+  - prd.json (marked US-032 as passes: true)
+- **Learnings for future iterations:**
+  - Broker portal pages should NOT show fraud detection details (risk scores, severity, indicator counts) — only status, document info, and underwriter messages
+  - REFERRED_TO_SIU status is displayed as "Under Review" to brokers to avoid revealing fraud investigation details
+  - Audit log endpoint (/api/audit-logs) requires ADMIN or COMPLIANCE_OFFICER role — broker detail page gracefully handles 403 by showing no timeline section
+  - Auto-refresh pattern: use `setInterval` inside a `useEffect` that checks `submission?.status === "PROCESSING"` to poll for updates every 5 seconds while processing
+  - For TypeScript issues with `Record<string, unknown>` values in JSX expressions, extract rendering into a separate component rather than inline complex type narrowing
+  - Notification badge count: use `limit=1` query with pagination total for efficient count-only fetches
+  - Portal header polls INFO_NEEDED count every 30 seconds with interval cleanup in useEffect return
+---
