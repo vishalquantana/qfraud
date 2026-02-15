@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { toJsonValue } from "@/lib/utils";
 import type { Acord125ExtractedData } from "@/services/extraction-acord125";
 import type { Acord140ExtractedData } from "@/services/extraction-acord140";
 import type { FinancialStatementExtractedData } from "@/services/extraction-financial-statement";
@@ -190,7 +191,7 @@ async function detectDSOAnomaly(
       indicatorName: "DSO_REVENUE_ANOMALY",
       description: `Days Sales Outstanding (${evidence.dso} days) is ${evidence.dsoExcessPercent}% above the 45-day norm while revenue grew ${evidence.revenueGrowthPercent}%. High DSO with growing revenue is a key indicator of fictitious revenue (booking sales without collection).`,
       severity: "CRITICAL",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.8,
       recommendedAction:
         "Investigate revenue recognition practices. Request aging schedule of accounts receivable and verify cash collection records.",
@@ -244,7 +245,7 @@ async function detectARRatioAnomaly(
       indicatorName: "AR_RATIO_ANOMALY",
       description: `Accounts Receivable ($${ar.toLocaleString()}) represents ${evidence.arAsPercentOfRevenue}% of revenue ($${revenue.toLocaleString()}), exceeding the 40% threshold. This may indicate slow collection, fictitious receivables, or inflated revenue.`,
       severity: "HIGH",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.75,
       recommendedAction:
         "Request accounts receivable aging report. Verify that receivables are collectible and not used to inflate revenue.",
@@ -317,7 +318,7 @@ async function detectProfitMarginAnomaly(
       indicatorName: "PROFIT_MARGIN_ANOMALY",
       description: `Net profit margin (${evidence.profitMarginPercent}%) exceeds industry average (${industryAvg}%) for ${sectorName} by more than 50%. Unusually high margins may indicate understated expenses or inflated revenue.`,
       severity: "MEDIUM",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.65,
       recommendedAction:
         "Review expense categories for completeness. Verify that all costs of operations are properly accounted for.",
@@ -383,7 +384,7 @@ async function detectContentsToBuildingAnomaly(
         indicatorName: "CONTENTS_TO_BUILDING_RATIO_ANOMALY",
         description: `Property at ${location.address ?? "unknown address"}: contents-to-building ratio (${evidence.contentsToBuildingRatio}%) is outside the expected range (${evidence.expectedRange}) for ${classification} occupancy. ${ratio < expectedMin ? "Unusually low contents value may indicate underinsurance" : "Unusually high contents value may indicate over-insurance for fraudulent claims"}.`,
         severity: "HIGH",
-        evidence: JSON.parse(JSON.stringify(evidence)),
+        evidence: toJsonValue(evidence),
         confidence: 0.7,
         recommendedAction:
           ratio > expectedMax

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { withRole, withTenantFilter } from "@/lib/rbac";
 import { getUserId } from "@/lib/api-handler";
 import { logAudit } from "@/services/audit-log";
+import { overrideScoreSchema } from "@/lib/validation-schemas";
 
 // ─── PATCH /api/submissions/:id/override-score ───────────
 // Override the risk score (SENIOR_UNDERWRITER and ADMIN only)
@@ -20,35 +21,30 @@ export const PATCH = withRole(
       );
     }
 
-    let body: { score?: number; justification?: string };
+    let rawBody: unknown;
     try {
-      body = await req.json();
+      rawBody = await req.json();
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { score, justification } = body;
-
-    if (score === undefined || score === null || typeof score !== "number") {
+    const parsed = overrideScoreSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      const field = firstError?.path?.[0];
+      if (field === "justification") {
+        return NextResponse.json(
+          { error: "Justification is required for score override" },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
-        { error: "Score is required and must be a number" },
+        { error: "Score is required and must be a number between 0 and 100" },
         { status: 400 }
       );
     }
 
-    if (score < 0 || score > 100) {
-      return NextResponse.json(
-        { error: "Score must be between 0 and 100" },
-        { status: 400 }
-      );
-    }
-
-    if (!justification?.trim()) {
-      return NextResponse.json(
-        { error: "Justification is required for score override" },
-        { status: 400 }
-      );
-    }
+    const { score, justification } = parsed.data;
 
     // Find the submission
     const submission = await prisma.submission.findFirst({

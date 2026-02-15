@@ -396,7 +396,7 @@ export default function SIUCaseDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
+      <div className="flex h-96 items-center justify-center" aria-busy="true">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-blue-600 dark:border-slate-600 dark:border-t-blue-400" />
       </div>
     );
@@ -407,7 +407,7 @@ export default function SIUCaseDetailPage() {
   if (error || !caseData) {
     return (
       <div className="mx-auto max-w-4xl p-6">
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-900/30">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-900/30">
           <p className="text-red-700 dark:text-red-400">
             {error || "Case not found."}
           </p>
@@ -539,6 +539,7 @@ export default function SIUCaseDetailPage() {
                 type="button"
                 onClick={() => setShowReportDropdown(!showReportDropdown)}
                 disabled={reportGenerating !== null}
+                aria-label="Generate report"
                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
               >
                 {reportGenerating ? (
@@ -632,7 +633,7 @@ export default function SIUCaseDetailPage() {
 
       {/* ─── Tab Navigation ──────────────────────────────── */}
       <div className="border-b border-slate-200 dark:border-slate-700">
-        <nav className="-mb-px flex gap-6">
+        <nav className="-mb-px flex gap-6" role="tablist" aria-label="Case details">
           {(
             [
               { key: "indicators", label: "Fraud Indicators", count: caseData.indicatorCount },
@@ -644,6 +645,8 @@ export default function SIUCaseDetailPage() {
             <button
               key={tab.key}
               type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
@@ -674,6 +677,7 @@ export default function SIUCaseDetailPage() {
                   e.target.value as "all" | "active" | "overridden"
                 )
               }
+              aria-label="Filter indicators"
               className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
             >
               <option value="all">All Indicators ({caseData.indicators.length})</option>
@@ -932,7 +936,7 @@ export default function SIUCaseDetailPage() {
       {/* ─── Status Update Modal ─────────────────────────── */}
       {statusModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800">
+          <div role="dialog" aria-modal="true" aria-label={`Update status to ${STATUS_LABELS[statusModal] ?? statusModal}`} className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
               Update Status: {STATUS_LABELS[statusModal] ?? statusModal}
             </h3>
@@ -1012,7 +1016,7 @@ export default function SIUCaseDetailPage() {
       {/* ─── Add Evidence Modal ──────────────────────────── */}
       {showEvidenceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800">
+          <div role="dialog" aria-modal="true" aria-label="Upload new evidence" className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
               Upload New Evidence
             </h3>
@@ -1028,6 +1032,7 @@ export default function SIUCaseDetailPage() {
                 <select
                   value={evidenceType}
                   onChange={(e) => setEvidenceType(e.target.value)}
+                  aria-label="Evidence type"
                   className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 >
                   <option value="document">Document</option>

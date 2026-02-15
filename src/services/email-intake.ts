@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
 import { uploadToS3 } from "@/lib/s3";
 import { sendNotification } from "@/services/notification";
 import { logAudit } from "@/services/audit-log";
 import JSZip from "jszip";
+
+const log = createLogger("email-intake");
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -205,9 +208,9 @@ export async function processInboundEmail(
         const extracted = await extractZipContents(buffer);
         processedFiles.push(...extracted);
       } catch (err) {
-        console.error(
-          `Failed to extract zip: ${attachment.filename}`,
-          err,
+        log.error(
+          { err, filename: attachment.filename },
+          "failed to extract zip"
         );
         // Skip bad zips, continue processing other attachments
       }
@@ -308,9 +311,9 @@ export async function processInboundEmail(
 
       uploadedCount++;
     } catch (err) {
-      console.error(
-        `Failed to upload ${file.filename} to S3:`,
-        err,
+      log.error(
+        { err, filename: file.filename },
+        "failed to upload to S3"
       );
       await prisma.document.update({
         where: { id: document.id },

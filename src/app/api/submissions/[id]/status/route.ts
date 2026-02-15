@@ -4,6 +4,7 @@ import { withRole, withTenantFilter } from "@/lib/rbac";
 import { getUserId } from "@/lib/api-handler";
 import { logAudit } from "@/services/audit-log";
 import { sendNotification } from "@/services/notification";
+import { statusActionSchema } from "@/lib/validation-schemas";
 import type { Role } from "@/generated/prisma/client";
 
 // ─── Valid Status Transitions ────────────────────────────
@@ -35,19 +36,25 @@ export const PATCH = withRole(
       );
     }
 
-    let body: {
-      action?: string;
-      justification?: string;
-      infoNeededDetails?: string;
-    };
+    let rawBody: unknown;
     try {
-      body = await req.json();
+      rawBody = await req.json();
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { action, justification, infoNeededDetails } = body;
-    if (!action || !VALID_ACTIONS[action]) {
+    const parsed = statusActionSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: `Invalid action. Must be one of: ${Object.keys(VALID_ACTIONS).join(", ")}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { action, justification, infoNeededDetails } = parsed.data;
+    if (!VALID_ACTIONS[action]) {
       return NextResponse.json(
         {
           error: `Invalid action. Must be one of: ${Object.keys(VALID_ACTIONS).join(", ")}`,

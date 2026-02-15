@@ -332,7 +332,7 @@ export default function ThresholdConfigPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl p-4 sm:p-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" aria-busy="true">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
           <span className="text-slate-500 dark:text-slate-400">
             Loading thresholds...
@@ -379,7 +379,7 @@ export default function ThresholdConfigPage() {
 
       {/* ─── Alerts ──────────────────────────────────────── */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
           {error}
           <button
             onClick={() => setError(null)}
@@ -390,7 +390,7 @@ export default function ThresholdConfigPage() {
         </div>
       )}
       {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
+        <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
           {success}
         </div>
       )}
@@ -431,6 +431,7 @@ export default function ThresholdConfigPage() {
                   autoApproveBelow: parseInt(e.target.value, 10),
                 }))
               }
+              aria-label="Auto-approve threshold"
               className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-green-600 dark:bg-slate-600"
             />
             <div className="mt-1 flex justify-between text-xs text-slate-400">
@@ -467,6 +468,7 @@ export default function ThresholdConfigPage() {
                   autoEscalateAbove: parseInt(e.target.value, 10),
                 }))
               }
+              aria-label="Auto-escalate threshold"
               className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-red-600 dark:bg-slate-600"
             />
             <div className="mt-1 flex justify-between text-xs text-slate-400">
@@ -517,7 +519,7 @@ export default function ThresholdConfigPage() {
 
           {/* Threshold validation warning */}
           {globalConfig.autoApproveBelow >= globalConfig.autoEscalateAbove && (
-            <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700 dark:border-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+            <div role="alert" className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700 dark:border-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
               Auto-approve threshold must be less than escalation threshold.
             </div>
           )}
@@ -988,7 +990,7 @@ export default function ThresholdConfigPage() {
       {/* ─── Save Confirmation Dialog ────────────────────── */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
+          <div role="dialog" aria-modal="true" aria-label="Confirm threshold changes" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
               Confirm Threshold Changes
             </h3>

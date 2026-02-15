@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
 import {
   deleteExpiredData,
   deleteExpiredDataAllTenants,
@@ -7,6 +8,8 @@ import {
 import { TENANT } from "@/test/fixtures";
 
 const mockedPrisma = vi.mocked(prisma);
+const mockLog = (createLogger as ReturnType<typeof vi.fn>).mock.results[0]
+  ?.value ?? createLogger("data-retention");
 
 // The global mock in setup.ts does not include document.count — add it here.
 if (!mockedPrisma.document.count) {
@@ -182,10 +185,6 @@ describe("data-retention", () => {
 
       mockedPrisma.tenant.findMany.mockResolvedValue(tenants as never);
 
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-
       // Return config for all tenants, but make submission.count fail
       // for the second tenant (tenant-fail)
       let callCount = 0;
@@ -209,13 +208,11 @@ describe("data-retention", () => {
       // Should have attempted all 3 tenants
       expect(mockedPrisma.complianceConfig.findUnique).toHaveBeenCalledTimes(3);
 
-      // Error logged for the failing tenant
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Failing Tenant"),
-        expect.any(Error)
+      // Error logged for the failing tenant via structured logger
+      expect(mockLog.error).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantName: "Failing Tenant" }),
+        expect.any(String)
       );
-
-      consoleErrorSpy.mockRestore();
     });
 
     it("handles empty tenant list gracefully", async () => {

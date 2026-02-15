@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { toJsonValue } from "@/lib/utils";
 import type { Acord125ExtractedData } from "@/services/extraction-acord125";
 import type { COIExtractedData } from "@/services/extraction-coi";
 import type { LossRunExtractedData } from "@/services/extraction-loss-run";
@@ -212,7 +213,7 @@ async function detectCoverageGaps(
       indicatorName: "COVERAGE_GAP",
       description: `${gapDays}-day gap in coverage detected between prior coverage ending ${evidence.priorCoverageEndDate} and requested effective date ${evidence.requestedEffectiveDate}. Coverage gaps may indicate prior cancellation or non-renewal.`,
       severity: "HIGH",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.75,
       recommendedAction:
         "Request explanation for the coverage gap. Verify if prior coverage was cancelled, non-renewed, or if the applicant was uninsured.",
@@ -340,7 +341,7 @@ async function detectClaimTimingClusters(
       indicatorName: "CLAIM_TIMING_CLUSTER",
       description: `${boundaryClaimCount} of ${totalClaims} claims (${evidence.boundaryPercent}%) occurred within 60 days of policy inception or expiration. Clustered claim timing may indicate opportunistic filing.`,
       severity: "HIGH",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.7,
       recommendedAction:
         "Review claim circumstances and verify that loss dates align with documented incidents. Clustered claims near policy boundaries warrant closer examination.",
@@ -422,7 +423,7 @@ async function detectDocumentStaleness(
           indicatorName: "DOCUMENT_STALENESS",
           description: `${rule.label} "${doc.fileName}" is ${ageMonths} months old (max allowed: ${rule.maxAgeMonths} months). Stale documents may not reflect current conditions.`,
           severity: "MEDIUM",
-          evidence: JSON.parse(JSON.stringify(evidence)),
+          evidence: toJsonValue(evidence),
           confidence: 0.6,
           recommendedAction: `Request an updated ${rule.label.toLowerCase()}. Documents older than ${rule.maxAgeMonths} months may not accurately represent current conditions.`,
         },
@@ -502,7 +503,7 @@ async function detectImpossibleDates(
             indicatorName: "IMPOSSIBLE_DATE_LOSS_RUN",
             description: `Loss run effective date (${evidence.lossRunEffectiveDate}) is after the policy effective date (${evidence.policyEffectiveDate}). Loss runs should cover prior periods.`,
             severity: "CRITICAL",
-            evidence: JSON.parse(JSON.stringify(evidence)),
+            evidence: toJsonValue(evidence),
             confidence: 0.9,
             recommendedAction:
               "Verify loss run dates — the loss run period should cover time before the requested policy effective date. Request corrected loss runs.",
@@ -543,7 +544,7 @@ async function detectImpossibleDates(
           indicatorName: "IMPOSSIBLE_DATE_COI",
           description: `COI expiration date (${evidence.coiExpirationDate}) is before effective date (${evidence.coiEffectiveDate}). This is logically impossible and may indicate a forged certificate.`,
           severity: "CRITICAL",
-          evidence: JSON.parse(JSON.stringify(evidence)),
+          evidence: toJsonValue(evidence),
           confidence: 0.95,
           recommendedAction:
             "Request a corrected COI — the expiration date precedes the effective date, which is impossible for a valid certificate.",
@@ -569,7 +570,7 @@ async function detectImpossibleDates(
           indicatorName: "IMPOSSIBLE_DATE_FUTURE",
           description: `COI effective date (${evidence.coiEffectiveDate}) is ${evidence.daysInFuture} days in the future relative to the submission date. Documents with dates far in the future may be fabricated.`,
           severity: "CRITICAL",
-          evidence: JSON.parse(JSON.stringify(evidence)),
+          evidence: toJsonValue(evidence),
           confidence: 0.85,
           recommendedAction:
             "Verify the COI dates — an effective date more than a year in the future is highly unusual and may indicate document fabrication.",

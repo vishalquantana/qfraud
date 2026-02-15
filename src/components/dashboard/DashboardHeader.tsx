@@ -26,11 +26,12 @@ export default function DashboardHeader({
   const userRole = session?.user?.role ?? "";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 dark:border-slate-700 dark:bg-slate-800">
+    <header role="banner" className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 dark:border-slate-700 dark:bg-slate-800">
       {/* Left: mobile menu button + tenant */}
       <div className="flex items-center gap-4">
         <button
           onClick={onOpenSidebar}
+          aria-label="Open sidebar menu"
           className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 lg:hidden"
         >
           <svg
@@ -64,6 +65,7 @@ export default function DashboardHeader({
         {/* Dark/Light mode toggle */}
         <button
           onClick={toggleTheme}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
           title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
@@ -111,6 +113,7 @@ export default function DashboardHeader({
 
             <button
               onClick={() => signOut({ callbackUrl: "/dashboard/login" })}
+              aria-label="Sign out"
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
             >
               Sign Out

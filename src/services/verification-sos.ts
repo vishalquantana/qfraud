@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
 import type { Acord125ExtractedData } from "@/services/extraction-acord125";
 import type { EntityDocExtractedData } from "@/services/extraction-entity-doc";
+
+const log = createLogger("verification-sos");
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -462,8 +465,9 @@ export async function verifyEntity(submissionId: string): Promise<void> {
     sosResponse = await withRetry(() => querySOS(entityName, state));
   } catch {
     // API failure — add to manual verification queue (log and skip)
-    console.error(
-      `SOS API failed for submission ${submissionId}, entity "${entityName}" in ${state}. Adding to manual verification queue.`,
+    log.error(
+      { submissionId, entityName, state },
+      "SOS API failed, adding to manual verification queue"
     );
     return;
   }

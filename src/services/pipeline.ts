@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
 import type { DocumentType } from "@/generated/prisma/client";
+
+const log = createLogger("pipeline");
 import { classifyDocument } from "@/services/classification";
 import { extractAcord125 } from "@/services/extraction-acord125";
 import { extractAcord130 } from "@/services/extraction-acord130";
@@ -234,7 +237,7 @@ function logStepErrors(
 ) {
   for (const result of results) {
     if (result.status === "rejected") {
-      console.error(`[Pipeline] ${stepName} error:`, result.reason);
+      log.error({ err: result.reason, stepName }, "pipeline step error");
     }
   }
 }

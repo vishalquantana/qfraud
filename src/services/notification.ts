@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
 import nodemailer from "nodemailer";
 import sgMail from "@sendgrid/mail";
 import { getStateFraudWarning } from "@/services/state-fraud-warnings";
+
+const log = createLogger("notification");
 
 // ─── HTML Escaping & URL Sanitization ─────────────────────
 
@@ -70,29 +73,16 @@ interface EmailContent {
 
 // ─── Email Provider ────────────────────────────────────────
 
-async function sendEmail(
-  to: string,
-  subject: string,
-  html: string,
-  fromAddress: string
-): Promise<void> {
-  const provider = process.env.EMAIL_PROVIDER || "smtp";
+let smtpTransport: ReturnType<typeof nodemailer.createTransport> | null = null;
 
-  if (provider === "sendgrid") {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      console.error("SENDGRID_API_KEY not configured, skipping email");
-      return;
-    }
-    sgMail.setApiKey(apiKey);
-    await sgMail.send({
-      to,
-      from: fromAddress,
-      subject,
-      html,
-    });
-  } else {
-    const transport = nodemailer.createTransport({
+/** Reset the SMTP transport singleton (for testing). */
+export function resetSmtpTransport() {
+  smtpTransport = null;
+}
+
+function getSmtpTransport() {
+  if (!smtpTransport) {
+    smtpTransport = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "localhost",
       port: parseInt(process.env.SMTP_PORT || "587", 10),
       secure: process.env.SMTP_SECURE === "true",
@@ -104,7 +94,33 @@ async function sendEmail(
             }
           : undefined,
     });
+  }
+  return smtpTransport;
+}
 
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  fromAddress: string
+): Promise<void> {
+  const provider = process.env.EMAIL_PROVIDER || "smtp";
+
+  if (provider === "sendgrid") {
+    const apiKey = process.env.SENDGRID_API_KEY;
+    if (!apiKey) {
+      log.error("SENDGRID_API_KEY not configured, skipping email");
+      return;
+    }
+    sgMail.setApiKey(apiKey);
+    await sgMail.send({
+      to,
+      from: fromAddress,
+      subject,
+      html,
+    });
+  } else {
+    const transport = getSmtpTransport();
     await transport.sendMail({
       from: fromAddress,
       to,
@@ -411,9 +427,9 @@ export async function sendNotification(
     await sendEmail(recipientEmail, subject, html, fromAddress);
   } catch (error) {
     // Notification failures should not break the main workflow
-    console.error(
-      `Failed to send ${type} notification to ${recipientEmail}:`,
-      error
+    log.error(
+      { err: error, type, recipientEmail },
+      "failed to send notification"
     );
   }
 }

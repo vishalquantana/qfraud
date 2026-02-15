@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("verification-professional-license");
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -356,8 +359,9 @@ export async function verifyProfessionalLicense(
         queryStateBoard(data.licenseNumber!, state, data.holderName),
       );
     } catch {
-      console.error(
-        `State board API failed for license ${data.licenseNumber} in ${state} for submission ${submissionId}. Skipping.`,
+      log.error(
+        { licenseNumber: data.licenseNumber, state, submissionId },
+        "state board API failed, skipping license verification"
       );
       continue;
     }

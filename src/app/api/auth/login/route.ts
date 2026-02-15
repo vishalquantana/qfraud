@@ -2,21 +2,28 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
-
-interface LoginBody {
-  email: string;
-  password: string;
-}
+import { loginSchema } from "@/lib/validation-schemas";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as LoginBody;
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 },
+    );
+  }
 
-  if (!body.email || !body.password) {
+  const parsed = loginSchema.safeParse(rawBody);
+  if (!parsed.success) {
     return NextResponse.json(
       { error: "Email and password are required" },
       { status: 400 },
     );
   }
+
+  const body = parsed.data;
 
   const user = await prisma.user.findFirst({
     where: {

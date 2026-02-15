@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
 import type { Acord125ExtractedData } from "@/services/extraction-acord125";
 import type { EntityDocExtractedData } from "@/services/extraction-entity-doc";
 import type { COIExtractedData } from "@/services/extraction-coi";
+
+const log = createLogger("verification-ofac-broker");
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -466,8 +469,9 @@ export async function verifyBrokerLicense(submissionId: string): Promise<void> {
   try {
     niprRecord = await withRetry(() => queryNIPR(brokerName, state));
   } catch {
-    console.error(
-      `NIPR API failed for submission ${submissionId}, broker "${brokerName}" in ${state}. Skipping verification.`,
+    log.error(
+      { submissionId, brokerName, state },
+      "NIPR API failed, skipping broker license verification"
     );
     return;
   }

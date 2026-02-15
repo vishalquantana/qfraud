@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getFromS3 } from "@/lib/s3";
+import { toJsonValue } from "@/lib/utils";
 
 // ─── Extracted data types ────────────────────────────────
 
@@ -343,7 +344,7 @@ export async function extractAcord140(documentId: string): Promise<Acord140Extra
     await prisma.document.update({
       where: { id: documentId },
       data: {
-        extractedData: JSON.parse(JSON.stringify(extractedData)),
+        extractedData: toJsonValue(extractedData),
         status: "ANALYZED",
       },
     });

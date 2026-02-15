@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withTenant, withTenantFilter } from "@/lib/rbac";
 import { getUserId } from "@/lib/api-handler";
-import { processSubmission } from "@/services/pipeline";
+import { enqueueSubmission } from "@/lib/queue";
 
 // ─── POST /api/submissions/:id/confirm ──────────────────
 // Confirms a submission and triggers the processing pipeline
@@ -52,16 +52,18 @@ export const POST = withTenant(async (ctx, params) => {
     data: { status: "PROCESSING" },
   });
 
-  // Trigger the processing pipeline (fire and forget — don't block the response)
-  processSubmission(submissionId).catch(() => {
-    // Pipeline errors are logged internally
-  });
+  // Enqueue for async processing via BullMQ
+  const job = await enqueueSubmission(submissionId, tenantId);
 
-  return NextResponse.json({
-    data: {
-      id: submissionId,
-      status: "PROCESSING",
-      message: "Submission confirmed and processing started.",
+  return NextResponse.json(
+    {
+      data: {
+        id: submissionId,
+        status: "PROCESSING",
+        jobId: job.id,
+        message: "Submission confirmed and queued for processing.",
+      },
     },
-  });
+    { status: 202 }
+  );
 });

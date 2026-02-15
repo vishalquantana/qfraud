@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
 import { processSubmission } from "@/services/pipeline";
 import { TENANT, SUBMISSION, DOCUMENTS } from "@/test/fixtures";
+
+const mockLog = (createLogger as ReturnType<typeof vi.fn>).mock.results[0]
+  ?.value ?? createLogger("pipeline");
 
 // ─── Mock all service dependencies ────────────────────────
 import { classifyDocument } from "@/services/classification";
@@ -868,9 +872,9 @@ describe("pipeline: processSubmission", () => {
 
       await processSubmission(SUBMISSION.clean.id);
 
-      expect(console.error).toHaveBeenCalledWith(
-        "[Pipeline] Classification error:",
-        error
+      expect(mockLog.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: error, stepName: "Classification" }),
+        "pipeline step error"
       );
     });
 
@@ -881,9 +885,9 @@ describe("pipeline: processSubmission", () => {
 
       await processSubmission(SUBMISSION.clean.id);
 
-      expect(console.error).toHaveBeenCalledWith(
-        "[Pipeline] Extraction error:",
-        error
+      expect(mockLog.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: error, stepName: "Extraction" }),
+        "pipeline step error"
       );
     });
 
@@ -894,9 +898,9 @@ describe("pipeline: processSubmission", () => {
 
       await processSubmission(SUBMISSION.clean.id);
 
-      expect(console.error).toHaveBeenCalledWith(
-        "[Pipeline] Phase 1 Detection error:",
-        error
+      expect(mockLog.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: error, stepName: "Phase 1 Detection" }),
+        "pipeline step error"
       );
     });
 
@@ -907,9 +911,9 @@ describe("pipeline: processSubmission", () => {
 
       await processSubmission(SUBMISSION.clean.id);
 
-      expect(console.error).toHaveBeenCalledWith(
-        "[Pipeline] Phase 2 Detection error:",
-        error
+      expect(mockLog.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: error, stepName: "Phase 2 Detection" }),
+        "pipeline step error"
       );
     });
 
@@ -922,13 +926,13 @@ describe("pipeline: processSubmission", () => {
 
       await processSubmission(SUBMISSION.clean.id);
 
-      expect(console.error).toHaveBeenCalledWith(
-        "[Pipeline] Phase 1 Detection error:",
-        error1
+      expect(mockLog.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: error1, stepName: "Phase 1 Detection" }),
+        "pipeline step error"
       );
-      expect(console.error).toHaveBeenCalledWith(
-        "[Pipeline] Phase 1 Detection error:",
-        error2
+      expect(mockLog.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: error2, stepName: "Phase 1 Detection" }),
+        "pipeline step error"
       );
     });
   });

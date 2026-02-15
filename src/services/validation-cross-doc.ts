@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { toJsonValue } from "@/lib/utils";
 import type { Acord125ExtractedData } from "@/services/extraction-acord125";
 import type { Acord130ExtractedData } from "@/services/extraction-acord130";
 import type { Acord140ExtractedData } from "@/services/extraction-acord140";
@@ -101,7 +102,7 @@ export async function validateRevenue(submissionId: string): Promise<void> {
       indicatorName: "REVENUE_MISMATCH",
       description: `Revenue reported on ACORD 125 ($${acordRevenue.toLocaleString()}) differs from financial statement ($${financialRevenue.toLocaleString()}) by ${evidence.variancePercent}%`,
       severity,
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.85,
       recommendedAction:
         severity === "CRITICAL"
@@ -170,7 +171,7 @@ export async function validatePayroll(submissionId: string): Promise<void> {
       indicatorName: "PAYROLL_MISMATCH",
       description: `Total payroll on ACORD 130 ($${acordPayroll.toLocaleString()}) differs from payroll tax document ($${taxPayroll.toLocaleString()}) by $${difference.toLocaleString()} (${evidence.variancePercent}%)`,
       severity,
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.85,
       recommendedAction:
         severity === "CRITICAL"
@@ -261,7 +262,7 @@ export async function validateEmployeeCount(
       indicatorName: "EMPLOYEE_COUNT_MISMATCH",
       description: `Employee count on ${applicationSource} (${applicationCount}) differs from payroll tax document (${taxCount}) by ${difference}`,
       severity: "HIGH",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.8,
       recommendedAction:
         "Review employee count discrepancy and request updated employee records from the broker",
@@ -333,7 +334,7 @@ export async function validateLossHistory(
         indicatorName: "LOSS_HISTORY_OMISSION",
         description: `ACORD 125 states no loss history, but loss runs contain ${totalLossRunClaims} claim(s)`,
         severity: "CRITICAL",
-        evidence: JSON.parse(JSON.stringify(evidence)),
+        evidence: toJsonValue(evidence),
         confidence: 0.9,
         recommendedAction:
           "Investigate potential concealment of loss history — applicant denied prior losses while loss runs show claims",
@@ -426,7 +427,7 @@ export async function validatePropertyValues(
         indicatorName: "PROPERTY_VALUE_ANOMALY",
         description: `Property at ${location.address ?? "unknown address"}: total insured value ($${totalInsured.toLocaleString()}) is ${evidence.insuredToAssessedRatio}x the estimated assessed value ($${evidence.estimatedAssessedValue.toLocaleString()})`,
         severity,
-        evidence: JSON.parse(JSON.stringify(evidence)),
+        evidence: toJsonValue(evidence),
         confidence: 0.7,
         recommendedAction:
           severity === "CRITICAL"

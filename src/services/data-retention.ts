@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("data-retention");
 
 /**
  * Background job stub: deleteExpiredData
@@ -43,10 +46,9 @@ export async function deleteExpiredData(tenantId: string): Promise<{
     ]);
 
   // MVP: Log what WOULD be deleted, but do not actually delete
-  console.log(
-    `[DATA RETENTION] Tenant ${tenantId}: ` +
-      `retention=${retentionYears}yr, cutoff=${cutoffDate.toISOString()}, ` +
-      `would purge: ${expiredSubmissions} submissions, ${expiredDocuments} documents, ${expiredAuditLogs} audit logs`
+  log.info(
+    { tenantId, retentionYears, cutoff: cutoffDate.toISOString(), expiredSubmissions, expiredDocuments, expiredAuditLogs },
+    "dry-run purge summary"
   );
 
   return {
@@ -77,14 +79,15 @@ export async function deleteExpiredDataAllTenants(): Promise<void> {
         result.expiredDocuments +
         result.expiredAuditLogs;
       if (total > 0) {
-        console.log(
-          `[DATA RETENTION] ${tenant.name}: ${total} total records flagged for purge (dry run)`
+        log.info(
+          { tenantName: tenant.name, total },
+          "records flagged for purge (dry run)"
         );
       }
     } catch (error) {
-      console.error(
-        `[DATA RETENTION] Error processing tenant ${tenant.name}:`,
-        error
+      log.error(
+        { err: error, tenantName: tenant.name },
+        "error processing tenant"
       );
     }
   }

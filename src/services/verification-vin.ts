@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("verification-vin");
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -372,8 +375,9 @@ export async function validateFleetVINs(submissionId: string): Promise<void> {
     try {
       decoded = await withRetry(() => decodeVIN(vehicle.vin!));
     } catch {
-      console.error(
-        `VIN decode failed for ${vehicle.vin} in submission ${submissionId}. Skipping.`,
+      log.error(
+        { vin: vehicle.vin, submissionId },
+        "VIN decode failed, skipping"
       );
       continue;
     }

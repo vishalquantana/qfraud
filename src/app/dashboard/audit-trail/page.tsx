@@ -217,6 +217,7 @@ export default function AuditTrailPage() {
         {logs.length > 0 && (
           <button
             onClick={handleExportCSV}
+            aria-label="Export audit trail as CSV"
             className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
           >
             <svg
@@ -250,6 +251,7 @@ export default function AuditTrailPage() {
               onChange={(e) =>
                 handleFilterChange(setActionFilter, e.target.value)
               }
+              aria-label="Filter by action type"
               className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
               <option value="">All Actions</option>
@@ -271,6 +273,7 @@ export default function AuditTrailPage() {
               onChange={(e) =>
                 handleFilterChange(setUserFilter, e.target.value)
               }
+              aria-label="Filter by user"
               className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
               <option value="">All Users</option>
@@ -427,14 +430,14 @@ export default function AuditTrailPage() {
 
       {/* ─── Error ───────────────────────────────────────── */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
           {error}
         </div>
       )}
 
       {/* ─── Loading ─────────────────────────────────────── */}
       {loading && (
-        <div className="flex items-center gap-3 py-12">
+        <div className="flex items-center gap-3 py-12" aria-busy="true">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
           <span className="text-slate-500 dark:text-slate-400">
             Loading audit logs...
@@ -469,22 +472,22 @@ export default function AuditTrailPage() {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm" aria-label="Audit log entries">
                 <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
                       Timestamp
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
                       User
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
                       Action
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
                       Submission
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
                       Details
                     </th>
                   </tr>
@@ -523,6 +526,7 @@ export default function AuditTrailPage() {
                 <button
                   onClick={() => setPage(Math.max(1, page - 1))}
                   disabled={page === 1}
+                  aria-label="Previous page"
                   className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700"
                 >
                   Previous
@@ -555,6 +559,7 @@ export default function AuditTrailPage() {
                     setPage(Math.min(pagination.totalPages, page + 1))
                   }
                   disabled={page === pagination.totalPages}
+                  aria-label="Next page"
                   className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700"
                 >
                   Next

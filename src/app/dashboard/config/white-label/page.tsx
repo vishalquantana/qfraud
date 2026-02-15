@@ -176,7 +176,7 @@ export default function WhiteLabelSettingsPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
-        <div className="animate-pulse space-y-4">
+        <div className="animate-pulse space-y-4" aria-busy="true">
           <div className="h-8 w-48 rounded bg-slate-200 dark:bg-slate-700" />
           <div className="h-64 rounded-xl bg-slate-200 dark:bg-slate-700" />
           <div className="h-48 rounded-xl bg-slate-200 dark:bg-slate-700" />
@@ -200,12 +200,12 @@ export default function WhiteLabelSettingsPage() {
 
       {/* Notifications */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
           {error}
         </div>
       )}
       {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
+        <div role="status" className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
           {success}
         </div>
       )}
@@ -288,6 +288,7 @@ export default function WhiteLabelSettingsPage() {
               type="file"
               accept="image/png,image/jpeg,image/svg+xml,image/webp"
               className="hidden"
+              aria-label="Upload logo file"
               onChange={handleLogoUpload}
             />
           </div>
@@ -619,6 +620,7 @@ function ColorPicker({
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          aria-label={`${label} color picker`}
           className="h-10 w-10 cursor-pointer rounded-lg border border-slate-300 p-0.5 dark:border-slate-600"
         />
         <input
@@ -628,6 +630,7 @@ function ColorPicker({
             const v = e.target.value;
             if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v);
           }}
+          aria-label={`${label} hex value`}
           className="block w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-mono shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:border-primary-400"
           maxLength={7}
         />

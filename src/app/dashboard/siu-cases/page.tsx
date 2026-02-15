@@ -141,6 +141,7 @@ export default function SIUCasesPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Filter by case status"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
         >
           {STATUS_OPTIONS.map((opt) => (
@@ -153,7 +154,7 @@ export default function SIUCasesPage() {
 
       {/* ─── Error Alert ──────────────────────────────────── */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
           {error}
           <button
             onClick={() => setError(null)}
@@ -166,7 +167,7 @@ export default function SIUCasesPage() {
 
       {/* ─── Loading ──────────────────────────────────────── */}
       {loading && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" aria-busy="true">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
           <span className="text-slate-500 dark:text-slate-400">
             Loading cases...
@@ -178,7 +179,7 @@ export default function SIUCasesPage() {
       {!loading && (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full text-sm" aria-label="SIU cases">
               <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
@@ -281,6 +282,7 @@ export default function SIUCasesPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
+              aria-label="Previous page"
               className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
             >
               Previous
@@ -290,6 +292,7 @@ export default function SIUCasesPage() {
                 setPage((p) => Math.min(pagination.totalPages, p + 1))
               }
               disabled={page >= pagination.totalPages}
+              aria-label="Next page"
               className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
             >
               Next

@@ -185,7 +185,7 @@ export default function UserManagementPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl p-4 sm:p-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" aria-busy="true">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
           <span className="text-slate-500 dark:text-slate-400">
             Loading users...
@@ -219,7 +219,7 @@ export default function UserManagementPage() {
 
       {/* ─── Alerts ──────────────────────────────────────── */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
           {error}
           <button
             onClick={() => setError(null)}
@@ -230,7 +230,7 @@ export default function UserManagementPage() {
         </div>
       )}
       {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
+        <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
           {success}
         </div>
       )}
@@ -238,10 +238,10 @@ export default function UserManagementPage() {
       {/* ─── Users Table ────────────────────────────────── */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm" aria-label="Users">
             <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
+                <th scope="col" className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
                   Name
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">
@@ -325,7 +325,7 @@ export default function UserManagementPage() {
       {/* ─── Invite User Modal ──────────────────────────── */}
       {showInvite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
+          <div role="dialog" aria-modal="true" aria-label="Invite user" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
               Invite User
             </h3>
@@ -406,7 +406,7 @@ export default function UserManagementPage() {
       {/* ─── Edit User Modal ────────────────────────────── */}
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
+          <div role="dialog" aria-modal="true" aria-label="Edit user" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
               Edit User
             </h3>

@@ -536,7 +536,7 @@ function IndicatorCard({
       {/* False Positive Modal */}
       {showFpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800" role="dialog" aria-modal="true" aria-label={indicator.isOverridden ? "Undo false positive" : "Mark as false positive"}>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
               {indicator.isOverridden
                 ? "Undo False Positive"
@@ -853,7 +853,7 @@ function ActionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800" role="dialog" aria-modal="true" aria-label={title}>
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
           {title}
         </h3>
@@ -972,7 +972,7 @@ function ScoreOverrideModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-800" role="dialog" aria-modal="true" aria-label="Override risk score">
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
           Override Risk Score
         </h3>
@@ -1129,7 +1129,7 @@ export default function SubmissionDetailPage() {
   // ─── Loading State ──────────────────────────────────
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
+      <div className="flex h-96 items-center justify-center" aria-busy="true">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-blue-600 dark:border-slate-600 dark:border-t-blue-400" />
       </div>
     );
@@ -1139,7 +1139,7 @@ export default function SubmissionDetailPage() {
   if (error || !report) {
     return (
       <div className="mx-auto max-w-4xl p-6">
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-900/30">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-900/30" role="alert">
           <p className="text-red-700 dark:text-red-400">
             {error || "Risk report not found."}
           </p>
@@ -1229,7 +1229,7 @@ export default function SubmissionDetailPage() {
                 <span>{submission.lineOfBusiness}</span>
               )}
               <span>{formatDate(submission.createdAt)}</span>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300" aria-label={`Status: ${STATUS_LABELS[submission.status] ?? submission.status}`}>
                 {STATUS_LABELS[submission.status] ?? submission.status}
               </span>
               <span className="text-xs">
@@ -1263,9 +1263,11 @@ export default function SubmissionDetailPage() {
 
       {/* ─── Tab Navigation ──────────────────────────────── */}
       <div className="border-b border-slate-200 dark:border-slate-700">
-        <nav className="-mb-px flex gap-6">
+        <nav className="-mb-px flex gap-6" role="tablist" aria-label="Submission details">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "risk"}
             onClick={() => setActiveTab("risk")}
             className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
               activeTab === "risk"
@@ -1277,6 +1279,8 @@ export default function SubmissionDetailPage() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "documents"}
             onClick={() => setActiveTab("documents")}
             className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
               activeTab === "documents"
@@ -1390,6 +1394,7 @@ export default function SubmissionDetailPage() {
                 <select
                   value={severityFilter}
                   onChange={(e) => setSeverityFilter(e.target.value)}
+                  aria-label="Filter by severity"
                   className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
                 >
                   <option value="">All Severities</option>
@@ -1401,6 +1406,7 @@ export default function SubmissionDetailPage() {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
+                  aria-label="Filter by category"
                   className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
                 >
                   {CATEGORY_FILTER_OPTIONS.map((opt) => (
@@ -1416,6 +1422,7 @@ export default function SubmissionDetailPage() {
                       e.target.value as "severity" | "category" | "confidence"
                     )
                   }
+                  aria-label="Sort indicators"
                   className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
                 >
                   <option value="severity">Sort by Severity</option>

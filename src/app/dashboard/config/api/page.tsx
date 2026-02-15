@@ -172,19 +172,19 @@ export default function ApiKeyManagementPage() {
 
       {/* Notifications */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
           {error}
         </div>
       )}
       {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
+        <div role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
           {success}
         </div>
       )}
 
       {/* Newly created key banner */}
       {newKey && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20">
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20">
           <div className="flex items-start gap-3">
             <svg
               className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
@@ -227,9 +227,11 @@ export default function ApiKeyManagementPage() {
 
       {/* Tabs */}
       <div className="border-b border-slate-200 dark:border-slate-700">
-        <nav className="flex gap-6">
+        <nav className="flex gap-6" role="tablist" aria-label="API management">
           <button
             onClick={() => setActiveTab("keys")}
+            role="tab"
+            aria-selected={activeTab === "keys"}
             className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
               activeTab === "keys"
                 ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
@@ -245,6 +247,8 @@ export default function ApiKeyManagementPage() {
           </button>
           <button
             onClick={() => setActiveTab("docs")}
+            role="tab"
+            aria-selected={activeTab === "docs"}
             className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
               activeTab === "docs"
                 ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
@@ -301,7 +305,7 @@ export default function ApiKeyManagementPage() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-12" aria-busy="true">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
             </div>
           ) : (
@@ -484,7 +488,7 @@ export default function ApiKeyManagementPage() {
       {/* Create API Key Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
+          <div role="dialog" aria-modal="true" aria-label="Create API key" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-800">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
               Create API Key
             </h3>

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { toJsonValue } from "@/lib/utils";
 
 // ─── Action Types ────────────────────────────────────────
 
@@ -43,7 +44,7 @@ export async function logAudit({
     data: {
       tenantId,
       action,
-      details: JSON.parse(JSON.stringify(details)),
+      details: toJsonValue(details),
       userId: userId ?? undefined,
       submissionId: submissionId ?? undefined,
       ipAddress: ipAddress ?? undefined,

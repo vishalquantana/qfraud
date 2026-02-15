@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { toJsonValue } from "@/lib/utils";
 import type { Acord125ExtractedData } from "@/services/extraction-acord125";
 import type { Acord130ExtractedData } from "@/services/extraction-acord130";
 import type { FinancialStatementExtractedData } from "@/services/extraction-financial-statement";
@@ -132,7 +133,7 @@ async function detectRoundNumbers(
       indicatorName: "ROUND_NUMBER_ANOMALY",
       description: `${roundValues.length} financial value(s) are exact multiples of $100K: ${fieldSummary}. Exact round numbers across multiple fields may indicate estimated or fabricated figures.`,
       severity: "MEDIUM",
-      evidence: JSON.parse(JSON.stringify({ roundValues })),
+      evidence: toJsonValue({ roundValues }),
       confidence: 0.5,
       recommendedAction:
         "Review the flagged financial values for reasonableness. Request supporting documentation for round-number figures.",
@@ -194,7 +195,7 @@ async function detectRevenueGrowthAnomaly(
       indicatorName: "REVENUE_GROWTH_ANOMALY",
       description: `Year-over-year revenue growth of ${evidence.growthPercent}% (from $${priorRevenue.toLocaleString()} to $${currentRevenue.toLocaleString()}) exceeds the ${threshold}% threshold for ${benchmark.sectorName}. Rapid revenue growth may indicate inflated figures.`,
       severity: "HIGH",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.7,
       recommendedAction:
         "Request audited financial statements and supporting documentation for the revenue increase. Verify business expansion claims.",
@@ -265,7 +266,7 @@ async function detectCogsMarginAnomaly(
       indicatorName: "COGS_MARGIN_ANOMALY",
       description: `COGS as percentage of revenue (${evidence.cogsPercent}%) deviates significantly from the expected range (${evidence.expectedRange}) for ${benchmark.sectorName}. This ${cogsPercent < expectedMin ? "unusually low" : "unusually high"} cost structure may warrant investigation.`,
       severity: "HIGH",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.7,
       recommendedAction:
         "Review cost structure and verify COGS figures against supplier invoices or other supporting documentation.",
@@ -346,7 +347,7 @@ async function detectPayrollPerHeadAnomaly(
       indicatorName: "PAYROLL_PER_HEAD_ANOMALY",
       description: `Average payroll per employee ($${Math.round(payrollPerHead).toLocaleString()}) is outside the expected range (${evidence.expectedRange}) for ${benchmark.sectorName}. ${payrollPerHead < expectedMin ? "Unusually low payroll may indicate underreported employees or payroll" : "Unusually high payroll may indicate inflated compensation figures"}.`,
       severity: "HIGH",
-      evidence: JSON.parse(JSON.stringify(evidence)),
+      evidence: toJsonValue(evidence),
       confidence: 0.7,
       recommendedAction:
         payrollPerHead < expectedMin

@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
 import {
   sendNotification,
+  resetSmtpTransport,
   type NotificationType,
   type NotificationData,
 } from "@/services/notification";
 import { TENANT, WHITE_LABEL_CONFIG } from "@/test/fixtures";
 
 const mockedPrisma = vi.mocked(prisma);
+const mockLog = (createLogger as ReturnType<typeof vi.fn>).mock.results[0]
+  ?.value ?? createLogger("notification");
 
 // ─── Mocks ────────────────────────────────────────────────
 
@@ -98,6 +102,7 @@ const sampleData: NotificationData = {
 describe("notification service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    resetSmtpTransport();
     // Default: return tenant with white label config
     mockedPrisma.tenant.findUniqueOrThrow.mockResolvedValue(
       makeTenantWithBranding() as any
@@ -542,6 +547,23 @@ describe("notification service", () => {
   });
 
   // ------------------------------------------------------------------
+  // SMTP transport singleton
+  // ------------------------------------------------------------------
+
+  describe("SMTP transport singleton", () => {
+    it("reuses the same SMTP transport for multiple sends", async () => {
+      const nodemailer = await import("nodemailer");
+
+      await sendNotification("SUBMISSION_RECEIVED", "a@test.com", TENANT.id, sampleData);
+      await sendNotification("SUBMISSION_APPROVED", "b@test.com", TENANT.id, sampleData);
+      await sendNotification("SUBMISSION_DECLINED", "c@test.com", TENANT.id, sampleData);
+
+      // createTransport should be called only once (singleton)
+      expect(nodemailer.default.createTransport).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ------------------------------------------------------------------
   // Notification failure doesn't throw (graceful degradation)
   // ------------------------------------------------------------------
 
@@ -553,13 +575,9 @@ describe("notification service", () => {
         new Error("SMTP connection refused")
       );
 
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
       await expect(
         sendNotification("SUBMISSION_RECEIVED", "test@example.com", TENANT.id, sampleData)
       ).resolves.toBeUndefined();
-
-      consoleSpy.mockRestore();
     });
 
     it("logs the error when sending fails", async () => {
@@ -569,16 +587,16 @@ describe("notification service", () => {
         new Error("SMTP timeout")
       );
 
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
       await sendNotification("SUBMISSION_RECEIVED", "test@example.com", TENANT.id, sampleData);
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to send SUBMISSION_RECEIVED notification"),
-        expect.any(Error)
+      expect(mockLog.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          err: expect.any(Error),
+          type: "SUBMISSION_RECEIVED",
+          recipientEmail: "test@example.com",
+        }),
+        expect.stringContaining("failed to send notification")
       );
-
-      consoleSpy.mockRestore();
     });
 
     it("does NOT throw when branding lookup fails", async () => {
@@ -586,13 +604,9 @@ describe("notification service", () => {
         new Error("Tenant not found")
       );
 
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
       await expect(
         sendNotification("SUBMISSION_RECEIVED", "test@example.com", TENANT.id, sampleData)
       ).resolves.toBeUndefined();
-
-      consoleSpy.mockRestore();
     });
 
     it("does NOT throw when SendGrid send fails", async () => {
@@ -604,13 +618,9 @@ describe("notification service", () => {
         new Error("SendGrid rate limited")
       );
 
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
       await expect(
         sendNotification("SUBMISSION_RECEIVED", "test@example.com", TENANT.id, sampleData)
       ).resolves.toBeUndefined();
-
-      consoleSpy.mockRestore();
     });
   });
 });

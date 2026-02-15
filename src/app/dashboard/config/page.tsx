@@ -98,7 +98,7 @@ export default function ConfigPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2" role="navigation" aria-label="Configuration sections">
         {CONFIG_SECTIONS.map((section) => (
           <Link
             key={section.href}

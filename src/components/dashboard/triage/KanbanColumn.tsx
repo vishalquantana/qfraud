@@ -51,6 +51,8 @@ export default function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
+      role="list"
+      aria-label={`${label} column, ${count} submissions`}
       className={`flex w-72 min-w-[288px] flex-shrink-0 flex-col rounded-xl border-2 transition-colors ${
         isOver
           ? "border-primary-400 bg-primary-50/50 dark:border-primary-600 dark:bg-primary-900/20"

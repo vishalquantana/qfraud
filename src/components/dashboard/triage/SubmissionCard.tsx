@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import type { TriageSubmission } from "@/app/dashboard/triage/page";
+import type { TriageSubmission } from "./triage-types";
 
 interface SubmissionCardProps {
   submission: TriageSubmission;

@@ -297,11 +297,12 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Date range selector */}
-        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" role="group" aria-label="Date range selector">
           {DATE_RANGES.map((r) => (
             <button
               key={r.value}
               onClick={() => setRange(r.value)}
+              aria-pressed={range === r.value}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 range === r.value
                   ? "bg-primary-600 text-white"
@@ -316,10 +317,12 @@ export default function AnalyticsPage() {
 
       {/* ─── Tabs ──────────────────────────────────────────── */}
       <div className="border-b border-slate-200 dark:border-slate-700">
-        <div className="flex gap-0">
+        <div className="flex gap-0" role="tablist" aria-label="Analytics views">
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.id
@@ -335,14 +338,14 @@ export default function AnalyticsPage() {
 
       {/* ─── Error ───────────────────────────────────────── */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
           {error}
         </div>
       )}
 
       {/* ─── Loading ─────────────────────────────────────── */}
       {loading && (
-        <div className="flex items-center gap-3 py-12">
+        <div className="flex items-center gap-3 py-12" aria-busy="true">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
           <span className="text-slate-500 dark:text-slate-400">
             Loading analytics...
@@ -397,7 +400,7 @@ function OverviewTab({
 }) {
   return (
     <>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6" role="region" aria-label="Key performance indicators">
         <KPICard
           label="Total Submissions"
           value={summary.totalSubmissions.toString()}
@@ -436,7 +439,7 @@ function OverviewTab({
 
       {/* Trend Line Chart */}
       {trends && trends.trends.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800" role="region" aria-label="Submission trends chart">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -539,7 +542,7 @@ function OverviewTab({
       {/* Severity Pie + Top Indicators */}
       <div className="grid gap-6 lg:grid-cols-2">
         {severityPieData.length > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800" role="region" aria-label="Severity distribution chart">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
               Severity Distribution
             </h2>
@@ -758,7 +761,7 @@ function BrokerQualityTab({
         </div>
 
         {!brokerDetail && (
-          <div className="flex items-center gap-3 py-6">
+          <div className="flex items-center gap-3 py-6" aria-busy="true">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
             <span className="text-slate-500 dark:text-slate-400">
               Loading broker details...
@@ -1448,6 +1451,7 @@ function ExportButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
+      aria-label="Export data as CSV"
       className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
     >
       <svg

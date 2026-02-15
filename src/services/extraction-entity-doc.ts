@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getFromS3 } from "@/lib/s3";
+import { toJsonValue } from "@/lib/utils";
 
 // ─── Extracted data types ────────────────────────────────
 
@@ -331,7 +332,7 @@ export async function extractEntityDocument(
     await prisma.document.update({
       where: { id: documentId },
       data: {
-        extractedData: JSON.parse(JSON.stringify(extractedData)),
+        extractedData: toJsonValue(extractedData),
         status: "ANALYZED",
       },
     });
