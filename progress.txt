@@ -707,3 +707,19 @@
   - Indicator counts per case: use `prisma.fraudIndicator.groupBy` with `by: ["submissionId"]` for efficient batch count across multiple submissions
   - SIU case auto-creation happens in both routing-engine.ts and submissions/[id]/status/route.ts (manual referral) — the case list page shows cases from both sources
 ---
+
+## 2026-02-15 - US-040
+- What was implemented: SIU case detail page at /dashboard/siu-cases/:id with full investigation workflow
+- Files changed:
+  - src/app/dashboard/siu-cases/[id]/page.tsx (new: full case detail page with 4 tabs — Fraud Indicators, Evidence, Timeline, Notes — plus status update buttons, resolution workflow, evidence upload modal, SLA timer, and case header with submission link)
+  - prd.json (marked US-040 as passes: true)
+- **Learnings for future iterations:**
+  - SIU case detail reuses indicator display patterns from submission detail page but without false-positive marking (that's managed at the case level via resolution)
+  - Timeline is built client-side by merging case creation event, notes, evidence uploads, and resolution into a single sorted list — no separate timeline API needed
+  - Status transitions are modeled as a map: OPEN → INVESTIGATING, INVESTIGATING → EVIDENCE_GATHERED/FALSE_POSITIVE/INCONCLUSIVE, EVIDENCE_GATHERED → CONFIRMED_FRAUD/FALSE_POSITIVE/INCONCLUSIVE
+  - Terminal statuses (CONFIRMED_FRAUD, FALSE_POSITIVE, INCONCLUSIVE) hide the status update bar and add note/evidence buttons since the case is closed
+  - SLA timer uses severity-based hours (CRITICAL=24h, HIGH=48h, MEDIUM=5d, LOW=10d) computed from case createdAt
+  - Resolution text is required for CONFIRMED_FRAUD and FALSE_POSITIVE but optional for INCONCLUSIVE
+  - Notes displayed in reverse chronological order (newest first); notes panel supports markdown text (rendered as pre-wrap)
+  - Evidence upload uses a URL/reference approach rather than direct file upload to S3 — matches the existing PATCH API which accepts type/url/description
+---
