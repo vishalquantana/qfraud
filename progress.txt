@@ -63,6 +63,9 @@
 - Analytics tabs: Overview/Broker Quality/Compliance at `/dashboard/analytics` — tab-specific data fetching only loads data for active tab
 - CSV export: `downloadCSV(filename, headers, rows)` helper creates client-side Blob download — used on all analytics tables
 - Broker analytics API: GET `/api/analytics/brokers` with optional `brokerId` param for drill-down detail
+- API key management: `/api/config/api-keys` (GET list, POST create) and `/api/config/api-keys/:id` (PATCH revoke), ADMIN-only; keys use `qsk_` prefix + 32 random bytes, stored as SHA-256 hash
+- OpenAPI spec: served at `/api/docs/openapi.json` as static JSON from route handler; covers all public API endpoints
+- swagger-ui-react: use `dynamic(() => import("swagger-ui-react"), { ssr: false })` for Next.js SSR compatibility
 ---
 
 ## 2026-02-15 - US-009
@@ -818,4 +821,23 @@
   - Live portal header preview: render a mock header/button bar with actual color values applied via inline `style` prop for immediate visual feedback
   - Reuses THRESHOLD_CHANGED audit action type since there's no dedicated WHITE_LABEL_CHANGED action in AuditAction union — future iteration could add specific action type
   - Sticky save bar pattern: `sticky bottom-0 z-10` with `bg-white/95 backdrop-blur-sm` for semi-transparent footer that persists while scrolling
+---
+
+## 2026-02-15 - US-046
+- What was implemented: API key management page and OpenAPI documentation viewer at /dashboard/config/api (ADMIN only)
+- Files changed:
+  - src/app/api/config/api-keys/route.ts (new: GET /api/config/api-keys for listing keys with prefix-only display, POST for creating keys with hashed storage and one-time full key return)
+  - src/app/api/config/api-keys/[id]/route.ts (new: PATCH /api/config/api-keys/:id for revoking keys via soft-delete)
+  - src/app/api/docs/openapi.json/route.ts (new: GET /api/docs/openapi.json serving comprehensive OpenAPI 3.0.3 spec covering all public API endpoints)
+  - src/app/dashboard/config/api/page.tsx (new: API key management page with tabbed view — API Keys tab with create/revoke/list, API Documentation tab with embedded swagger-ui-react viewer, sandbox toggle, one-time key reveal banner)
+  - package.json (added swagger-ui-react, @types/swagger-ui-react)
+  - prd.json (marked US-046 as passes: true)
+- **Learnings for future iterations:**
+  - API key generation: use `qsk_` prefix + 32 random bytes hex for identifiable keys; store SHA-256 hash via `hashApiKey()` from auth-middleware.ts
+  - API key listing: never return full key or hash — use `key.substring(0, 8)` of the hash as prefix for display
+  - One-time key reveal pattern: return full key only in POST creation response; store in component state with dismiss button and copy-to-clipboard
+  - swagger-ui-react requires `dynamic(() => import("swagger-ui-react"), { ssr: false })` in Next.js to avoid SSR hydration issues
+  - OpenAPI spec served as static JSON object from a route handler — no build step needed, easy to maintain inline
+  - Reuses THRESHOLD_CHANGED audit action type for API key create/revoke since AuditAction union doesn't have API_KEY_CREATED/REVOKED variants
+  - Sandbox toggle is a UI-only indicator in MVP — production would switch API key context between environments
 ---
