@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import PortalShell from "@/components/portal/PortalShell";
 import type { PortalConfig } from "@/components/portal/PortalShell";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_TENANT_SLUG = process.env.DEFAULT_TENANT_SLUG ?? "test-mga";
 
 async function getPortalConfig(): Promise<PortalConfig> {
