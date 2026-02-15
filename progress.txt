@@ -981,3 +981,18 @@
   - Agent appetite check uses submission status (DECLINED, REFERRED_TO_SIU) to determine "outside appetite" — needs at least 4 submissions for the 25% threshold to be meaningful
   - Service function is `resolveEntities(submissionId)` — exported from `src/services/resolution-entity.ts`
 ---
+
+## 2026-02-15 - US-055
+- What was implemented: Updated processing pipeline orchestrator to include all Phase 2 detection engines after Phase 1
+- Files changed:
+  - src/services/pipeline.ts (updated: added Phase 2 imports, document type filters for targeted engine execution, Phase 2 step with all 12 engines running in parallel, separate error tracking for Phase 1 vs Phase 2)
+  - prd.json (marked US-055 as passes: true)
+- **Learnings for future iterations:**
+  - Phase 2 engines are conditionally invoked based on document type: image forensics only for INSPECTION_PHOTO, VIN validation only for FLEET_SCHEDULE, professional license verification only for PROFESSIONAL_LICENSE docs
+  - Entity verification (SOS, OFAC, broker license, EIN) and entity resolution always run regardless of document types — they extract identifiers from available docs internally
+  - GenAI forgery detection and template matching run on all structured document types (ACORD forms, loss runs, financial statements, COI, entity docs, etc.)
+  - Broker letter NLP always runs — it internally checks for BROKER_SUBMISSION documents and skips gracefully if none exist
+  - Phase 2 failures don't block Phase 1 results — both phases use Promise.allSettled for isolated error handling
+  - Risk score recalculation after Phase 2 ensures all indicators (Phase 1 + Phase 2) are included in the final score
+  - Audit log completion entry now tracks phase1DetectionErrors and phase2DetectionErrors separately for better debugging
+---

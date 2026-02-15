@@ -21,6 +21,25 @@ import { detectTemporalAnomalies } from "@/services/detection-temporal";
 import { analyzeFinancialRatios } from "@/services/analysis-financial-ratios";
 import { calculateRiskScore } from "@/services/scoring-engine";
 import { routeSubmission } from "@/services/routing-engine";
+// Phase 2 detection engines
+import { verifyEntity } from "@/services/verification-sos";
+import {
+  screenOFAC,
+  verifyBrokerLicense,
+} from "@/services/verification-ofac-broker";
+import { validateEIN } from "@/services/verification-address-ein";
+import {
+  analyzeImage,
+  analyzeSubmissionImages,
+} from "@/services/forensics-image";
+import {
+  detectGenAIForgery,
+  matchTemplate,
+} from "@/services/detection-genai-forgery";
+import { analyzeBrokerLetter } from "@/services/analysis-broker-letter-nlp";
+import { validateFleetVINs } from "@/services/verification-vin";
+import { verifyProfessionalLicense } from "@/services/verification-professional-license";
+import { resolveEntities } from "@/services/resolution-entity";
 
 /** Map document types to their extraction functions */
 const EXTRACTORS: Partial<
@@ -35,13 +54,34 @@ const EXTRACTORS: Partial<
   ENTITY_DOC: extractEntityDocument,
 };
 
+/** Document types relevant for image forensics */
+const IMAGE_DOC_TYPES: DocumentType[] = ["INSPECTION_PHOTO"];
+
+/** Document types relevant for GenAI forgery detection and template matching */
+const FORGERY_CHECK_DOC_TYPES: DocumentType[] = [
+  "ACORD_125",
+  "ACORD_130",
+  "ACORD_140",
+  "LOSS_RUN",
+  "FINANCIAL_STATEMENT",
+  "COI",
+  "ENTITY_DOC",
+  "PROFESSIONAL_LICENSE",
+  "ENVIRONMENTAL_REPORT",
+  "SURPLUS_LINES",
+];
+
+/** Document types relevant for VIN validation */
+const FLEET_DOC_TYPES: DocumentType[] = ["FLEET_SCHEDULE"];
+
 /**
  * Orchestrates the full submission processing pipeline:
  * 1. Classify all documents
  * 2. Extract data from classified documents
  * 3. Run Phase 1 detection engines
- * 4. Calculate risk score
- * 5. Route submission based on thresholds
+ * 4. Run Phase 2 detection engines
+ * 5. Calculate risk score (includes Phase 1 + Phase 2 indicators)
+ * 6. Route submission based on thresholds
  */
 export async function processSubmission(submissionId: string): Promise<void> {
   const startTime = Date.now();
@@ -97,7 +137,7 @@ export async function processSubmission(submissionId: string): Promise<void> {
   logStepErrors("Extraction", extractionResults);
 
   // Step 3: Run all Phase 1 detection engines in parallel
-  const detectionResults = await Promise.allSettled([
+  const phase1Results = await Promise.allSettled([
     // Cross-document validations
     validateRevenue(submissionId),
     validatePayroll(submissionId),
@@ -116,12 +156,53 @@ export async function processSubmission(submissionId: string): Promise<void> {
     analyzeFinancialRatios(submissionId),
   ]);
 
-  logStepErrors("Detection", detectionResults);
+  logStepErrors("Phase 1 Detection", phase1Results);
 
-  // Step 4: Calculate risk score
+  // Step 4: Run Phase 2 detection engines in parallel
+  // Phase 2 engines run only on relevant document types
+  const inspectionPhotos = classifiedDocs.filter((doc) =>
+    IMAGE_DOC_TYPES.includes(doc.documentType)
+  );
+  const forgeryCheckDocs = classifiedDocs.filter((doc) =>
+    FORGERY_CHECK_DOC_TYPES.includes(doc.documentType)
+  );
+  const hasFleetDocs = classifiedDocs.some((doc) =>
+    FLEET_DOC_TYPES.includes(doc.documentType)
+  );
+  const hasProfLicenseDocs = classifiedDocs.some(
+    (doc) => doc.documentType === "PROFESSIONAL_LICENSE"
+  );
+
+  const phase2Results = await Promise.allSettled([
+    // Entity verification: SOS, OFAC, broker license, address/EIN
+    verifyEntity(submissionId),
+    screenOFAC(submissionId),
+    verifyBrokerLicense(submissionId),
+    validateEIN(submissionId),
+    // Image forensics: per-image analysis + cross-photo timestamps
+    ...inspectionPhotos.map((doc) => analyzeImage(doc.id)),
+    ...(inspectionPhotos.length > 0
+      ? [analyzeSubmissionImages(submissionId)]
+      : []),
+    // GenAI forgery detection and template matching on relevant docs
+    ...forgeryCheckDocs.map((doc) => detectGenAIForgery(doc.id)),
+    ...forgeryCheckDocs.map((doc) => matchTemplate(doc.id)),
+    // Broker cover letter NLP analysis
+    analyzeBrokerLetter(submissionId),
+    // VIN validation (only if fleet schedule docs exist)
+    ...(hasFleetDocs ? [validateFleetVINs(submissionId)] : []),
+    // Professional license verification (only if license docs exist)
+    ...(hasProfLicenseDocs ? [verifyProfessionalLicense(submissionId)] : []),
+    // Cross-submission entity resolution
+    resolveEntities(submissionId),
+  ]);
+
+  logStepErrors("Phase 2 Detection", phase2Results);
+
+  // Step 5: Calculate risk score (includes all Phase 1 + Phase 2 indicators)
   await calculateRiskScore(submissionId);
 
-  // Step 5: Route submission based on thresholds
+  // Step 6: Route submission based on thresholds
   await routeSubmission(submissionId);
 
   // Create audit log for pipeline completion
@@ -138,7 +219,8 @@ export async function processSubmission(submissionId: string): Promise<void> {
           documentsProcessed: classifiedDocs.length,
           classificationErrors: countErrors(classificationResults),
           extractionErrors: countErrors(extractionResults),
-          detectionErrors: countErrors(detectionResults),
+          phase1DetectionErrors: countErrors(phase1Results),
+          phase2DetectionErrors: countErrors(phase2Results),
         })
       ),
     },
