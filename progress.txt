@@ -45,6 +45,10 @@
 - Portal layout: `src/app/portal/layout.tsx` is a server component that loads WhiteLabelConfig; wraps children in `PortalShell` (client) which provides `SessionProvider` and CSS variables for theming
 - Portal white-label CSS vars: `--portal-primary`, `--portal-secondary`, `--portal-accent` set on PortalShell, consumed by child components via `var()` references and Tailwind arbitrary values like `text-[var(--portal-primary)]`
 - Portal tenant resolution: uses `DEFAULT_TENANT_SLUG` env var; production should parse subdomain from host header
+- Dashboard layout: `src/app/dashboard/layout.tsx` is a server component that fetches tenant name; wraps children in `DashboardShell` (client) which provides `SessionProvider` and `ThemeContext`
+- Dashboard theme: use `useSyncExternalStore` for theme state (NOT `useState` + `useEffect` with `setState` — triggers `react-hooks/set-state-in-effect` lint error). Persisted in `localStorage` key `dashboard-theme`
+- Dashboard dark mode: add `dark:` variant classes to all dashboard components. Toggle via `document.documentElement.classList.toggle("dark")`
+- Dashboard role-based nav: `navItems` array with optional `roles` field; SIU Cases = SIU_INVESTIGATOR+ADMIN, Configuration = ADMIN, Audit Trail = ADMIN+COMPLIANCE_OFFICER
 ---
 
 ## 2026-02-15 - US-009
@@ -559,4 +563,30 @@
   - For TypeScript issues with `Record<string, unknown>` values in JSX expressions, extract rendering into a separate component rather than inline complex type narrowing
   - Notification badge count: use `limit=1` query with pagination total for efficient count-only fetches
   - Portal header polls INFO_NEEDED count every 30 seconds with interval cleanup in useEffect return
+---
+
+## 2026-02-15 - US-033
+- What was implemented: Underwriter dashboard shell with sidebar navigation, header, dark/light mode toggle, login page, and role-based navigation
+- Files changed:
+  - src/app/dashboard/layout.tsx (new: server-side dashboard layout fetching tenant name, wrapping in DashboardShell)
+  - src/app/dashboard/page.tsx (new: redirects to /dashboard/triage)
+  - src/app/dashboard/login/page.tsx (new: login page with Quantana Shield branding, role validation for dashboard-allowed roles)
+  - src/app/dashboard/triage/page.tsx (new: placeholder triage board page)
+  - src/app/dashboard/analytics/page.tsx (new: placeholder analytics page)
+  - src/app/dashboard/siu-cases/page.tsx (new: placeholder SIU cases page)
+  - src/app/dashboard/config/page.tsx (new: placeholder configuration page)
+  - src/app/dashboard/audit-trail/page.tsx (new: placeholder audit trail page)
+  - src/components/dashboard/DashboardShell.tsx (new: client component with SessionProvider, theme context via useSyncExternalStore, sidebar state management)
+  - src/components/dashboard/DashboardSidebar.tsx (new: sidebar with role-based nav items, collapsible on desktop, slide-over on mobile, user info at bottom)
+  - src/components/dashboard/DashboardHeader.tsx (new: header with mobile menu button, tenant name, "Powered by Quantana Shield", dark/light toggle, user name + role badge, sign out)
+  - prd.json (marked US-033 as passes: true)
+- **Learnings for future iterations:**
+  - Dashboard uses a separate layout from portal — `/dashboard` route group has its own `layout.tsx` with `DashboardShell` component
+  - Theme management uses `useSyncExternalStore` instead of `useState` + `useEffect` with `setState` to avoid the `react-hooks/set-state-in-effect` lint error
+  - Dark mode classes: use `dark:bg-slate-900`, `dark:text-white`, `dark:border-slate-700` etc. with Tailwind's `dark:` variant; toggle via `document.documentElement.classList.toggle("dark")`
+  - Theme persisted in `localStorage` key `dashboard-theme`; falls back to system preference via `prefers-color-scheme` media query
+  - Role-based nav visibility: filter `navItems` array by optional `roles` field — items without `roles` are visible to all; SIU Cases requires SIU_INVESTIGATOR or ADMIN; Configuration requires ADMIN; Audit Trail requires ADMIN or COMPLIANCE_OFFICER
+  - Dashboard login page checks role after sign-in via `/api/auth/session` endpoint — blocks BROKER role from accessing dashboard
+  - Sidebar is collapsible on desktop (icon-only mode with `w-16`) and uses slide-over overlay on mobile
+  - Header shows subtle "Powered by Quantana Shield" branding alongside the tenant name
 ---
