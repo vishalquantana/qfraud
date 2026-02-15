@@ -874,3 +874,18 @@
   - Both services follow verification-sos.ts patterns: findExtractedData helper, extractStateFromAddress helper, withRetry wrapper, category ENTITY_INTEL
   - Broker license checks are layered: NOT_FOUND (CRITICAL) → status check (CRITICAL) → disciplinary history (HIGH) — all three can trigger independently
 ---
+
+## 2026-02-15 - US-049
+- What was implemented: Address classification service and EIN validation with web presence checking
+- Files changed:
+  - src/services/verification-address-ein.ts (new: classifyAddress function with heuristic pattern matching for RESIDENTIAL/COMMERCIAL/VIRTUAL_OFFICE/PO_BOX; validateEIN function orchestrating 3 parallel checks — address classification, EIN timing, web presence for new entities)
+  - prd.json (marked US-049 as passes: true)
+- **Learnings for future iterations:**
+  - Address classification uses layered heuristic: PO Box patterns (highest priority, 0.95 confidence) → virtual office keywords (0.8 confidence) → commercial vs residential pattern scoring → default commercial with low confidence (0.4)
+  - classifyAddress is a pure function (no DB access) — exported separately for reuse in other services; validateEIN is the main entry point that orchestrates DB-aware checks
+  - EIN timing check: extracts EIN from entity docs, looks up issuance date via mock API, compares against application date (from ACORD 125 effective date or submission createdAt fallback). Flag if <6 months
+  - Web presence check only runs for entities incorporated <2 years — uses incorporation date from entity docs or yearEstablished from ACORD 125 as fallback
+  - Mock APIs use deterministic keyword-based responses: EIN starting with "99" → 3 months old, "88" → 1 month old; entity names with "no web"/"nowebsite" → no web presence
+  - Address classification checks both ACORD 125 addresses (physical + mailing) AND entity document registered agent address — creates separate FraudIndicator per flagged address
+  - All checks run in parallel via Promise.all following the detection service pattern with category ENTITY_INTEL
+---
