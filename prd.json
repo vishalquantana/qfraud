@@ -1008,7 +1008,7 @@
         "Typecheck passes"
       ],
       "priority": 57,
-      "passes": false,
+      "passes": true,
       "notes": "This enables demo and testing of all UI features."
     }
   ]

@@ -81,6 +81,8 @@
 - Compliance config: `ComplianceConfig` model with unique tenantId, stores `retentionYears` (default 5); use `prisma.complianceConfig.findUnique({ where: { tenantId } })` to fetch tenant retention settings
 - Data retention: `src/services/data-retention.ts` — `deleteExpiredData(tenantId)` is a dry-run stub that logs what would be purged based on tenant retention config; `deleteExpiredDataAllTenants()` iterates all tenants
 - Fraud warning on submissions: `GET /api/submissions/:id/fraud-warning` extracts state code from ACORD_125/ENTITY_DOC extracted data and returns state-specific fraud warning text via `getStateFraudWarning(stateCode)`
+- Prisma SIUCase accessor: model `SIUCase` becomes `prisma.sIUCase` (NOT `prisma.siuCase`) due to Prisma's camelCase conversion rules for uppercase prefixes
+- Seed data idempotency: use `insuredName` prefix "SEED:" to identify and clean seed submissions; delete in FK order: SIU cases → indicators → audit logs → documents → submissions
 ---
 
 ## 2026-02-15 - US-009
@@ -1019,4 +1021,27 @@
   - ComplianceConfig uses `@unique` on tenantId for 1:1 with Tenant, same pattern as WhiteLabelConfig
   - The compliance dashboard already had data retention display from US-043 — just needed to make retentionYears configurable via ComplianceConfig instead of hardcoded
   - Data retention stub uses `dryRun: true` flag in return type to make it explicit that no deletions occur in MVP
+---
+
+## 2026-02-15 - US-057
+- What was implemented: Comprehensive seed data with 20 realistic test submissions across all statuses
+- Files changed:
+  - prisma/seed.ts (expanded with 20 submissions, documents, fraud indicators, audit logs, SIU cases)
+  - prd.json (marked US-057 as passes: true)
+- **Details:**
+  - 8 APPROVED submissions (clean, low-risk, auto-approved) across General Liability, Professional Liability, Workers Comp
+  - 5 UNDER_REVIEW submissions (medium risk, 38-55 score) with realistic indicators: A/R ratio, revenue mismatch, stale photos, invalid VINs, pressure language
+  - 4 DECLINED submissions (high risk, 65-78 score) with severe indicators: omitted loss history, manipulation language, excessive claim frequency, revenue discrepancies >25%
+  - 3 REFERRED_TO_SIU submissions (critical, 88-95 score) with CRITICAL indicators: payroll fraud, entity resolution matches, GPS mismatch, cross-submission fraud ring (James Kessler)
+  - 2 SIU cases with investigation notes, evidence, and timeline entries
+  - 3 broker users (Bob, Diana, Eric) distributed across submissions
+  - Each submission has 2-6 documents with realistic extractedData JSON
+  - All submissions have audit log entries (SUBMISSION_CREATED, PROCESSING_STARTED/COMPLETED, routing decision, FRAUD_FLAG_RAISED for HIGH/CRITICAL indicators)
+  - Seed is idempotent: cleans previous seed data (identified by "SEED:" prefix) before re-creating
+- **Learnings for future iterations:**
+  - Prisma 7 auto-generates accessor names from model names — `SIUCase` model becomes `prisma.sIUCase` (not `prisma.siuCase`)
+  - For Prisma JSON fields, cast `jsonClone()` results with `as object` to satisfy `InputJsonValue` type
+  - Use `insuredName` prefix pattern (e.g., "SEED:") for idempotent seed cleanup — allows selective deletion without affecting real data
+  - Delete in FK dependency order: SIU cases → fraud indicators → audit logs → documents → submissions
+  - WhiteLabelConfig was not previously in the seed — added upsert for completeness
 ---
