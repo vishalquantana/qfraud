@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,10 +17,36 @@ export default function PortalHeader({
 }: PortalHeaderProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const [infoNeededCount, setInfoNeededCount] = useState(0);
+
+  useEffect(() => {
+    if (!session) return;
+
+    async function fetchCount() {
+      try {
+        const res = await fetch("/api/submissions?status=INFO_NEEDED&limit=1");
+        if (res.ok) {
+          const data = await res.json();
+          setInfoNeededCount(data.pagination?.total ?? 0);
+        }
+      } catch {
+        // Silently ignore
+      }
+    }
+
+    fetchCount();
+    // Re-check every 30 seconds
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
+  }, [session]);
 
   const navLinks = [
-    { href: "/portal/submissions/new", label: "New Submission" },
-    { href: "/portal/submissions", label: "My Submissions" },
+    { href: "/portal/submissions/new", label: "New Submission", badge: 0 },
+    {
+      href: "/portal/submissions",
+      label: "My Submissions",
+      badge: infoNeededCount,
+    },
   ];
 
   return (
@@ -53,13 +80,18 @@ export default function PortalHeader({
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`relative rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                       isActive
                         ? "text-[var(--portal-primary)] bg-[var(--portal-primary)]/5"
                         : "text-slate-600 hover:text-[var(--portal-primary)] hover:bg-slate-50"
                     }`}
                   >
                     {link.label}
+                    {link.badge > 0 && (
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                        {link.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -99,6 +131,11 @@ export default function PortalHeader({
                   }`}
                 >
                   {link.label}
+                  {link.badge > 0 && (
+                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                      {link.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
