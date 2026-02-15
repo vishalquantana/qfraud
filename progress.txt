@@ -747,3 +747,21 @@
   - DOI report sections: case info, subject info, risk assessment, detailed findings, evidence collected, resolution, fraud warning, certification
   - Investigation summary sections: case overview, subject details, risk assessment, all indicators (including overridden), timeline, evidence inventory, notes, resolution
 ---
+
+## 2026-02-15 - US-042
+- What was implemented: Portfolio analytics page with summary metrics, trend charts, severity distribution, and top indicators
+- Files changed:
+  - src/app/api/analytics/summary/route.ts (new: GET /api/analytics/summary — KPI metrics: total submissions, flagged/approved/declined/SIU rates, avg processing time, severity counts, top fraud indicators by groupBy)
+  - src/app/api/analytics/trends/route.ts (new: GET /api/analytics/trends — time-series data with daily/weekly granularity, flagged vs clean breakdown)
+  - src/app/dashboard/analytics/page.tsx (replaced placeholder: full analytics dashboard with 6 KPI cards, date range selector (7D/30D/90D/YTD), trend line chart via Recharts LineChart, severity distribution donut chart via PieChart, top fraud indicators table)
+  - prd.json (marked US-042 as passes: true)
+- **Learnings for future iterations:**
+  - Analytics API pattern: fetch all submissions in date range, compute metrics in-memory for simplicity; for large datasets, switch to Prisma groupBy/aggregate queries
+  - Date range handling: parse `range` param (7d/30d/90d/ytd/custom) with `from`/`to` custom params; default to 30 days
+  - Trend granularity: auto-switch from daily to weekly when date range exceeds 30 days; use Monday-based week buckets via `getBucketKey()` helper
+  - Recharts Tooltip `labelFormatter` expects `(label: ReactNode, ...) => ReactNode` — use `String(label)` cast instead of typing param as `string`
+  - Recharts PieChart with donut: use `innerRadius` + `outerRadius` + `paddingAngle` on `Pie` component; `Cell` for per-slice colors
+  - Top indicators: use `prisma.fraudIndicator.groupBy({ by: ["indicatorName", "severity", "category"] })` with `_count` and `orderBy` for efficient aggregation
+  - KPI card grid: `grid-cols-2 lg:grid-cols-3 xl:grid-cols-6` for responsive layout from 2 to 6 columns
+  - Processing time calculation: use `updatedAt - createdAt` for completed submissions (APPROVED, DECLINED, REFERRED_TO_SIU)
+---
