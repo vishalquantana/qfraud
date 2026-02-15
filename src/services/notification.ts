@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
 import sgMail from "@sendgrid/mail";
+import { getStateFraudWarning } from "@/services/state-fraud-warnings";
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -24,6 +25,7 @@ export interface NotificationData {
   indicatorCount?: number;
   assignedTo?: string;
   caseId?: string;
+  stateCode?: string;
 }
 
 interface WhiteLabelBranding {
@@ -201,7 +203,11 @@ function buildSubmissionReceived(
       ${data.lineOfBusiness ? `<tr><td style="padding:8px 0;color:#64748b;">Line of Business</td><td style="padding:8px 0;color:#1e293b;">${data.lineOfBusiness}</td></tr>` : ""}
     </table>
     <p style="color:#475569;line-height:1.6;">You will receive updates as your submission is reviewed.</p>
-    ${trackingLink}`;
+    ${trackingLink}
+    <div style="background-color:#f1f5f9;border:1px solid #cbd5e1;padding:16px;margin:24px 0 0;border-radius:6px;">
+      <p style="margin:0 0 8px;color:#475569;font-weight:600;font-size:13px;">Fraud Warning Notice</p>
+      <p style="margin:0;color:#64748b;font-size:12px;line-height:1.5;">${getStateFraudWarning(data.stateCode ?? null)}</p>
+    </div>`;
 
   return {
     subject: `Submission Received - ${data.insuredName || data.submissionId || "New Submission"}`,

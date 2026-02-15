@@ -104,6 +104,17 @@ async function main() {
     console.log("  Default ThresholdConfig already exists (global)");
   }
 
+  // Upsert default compliance config for test tenant
+  await prisma.complianceConfig.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      retentionYears: 5,
+    },
+  });
+  console.log("  Default ComplianceConfig created (5-year retention)");
+
   console.log("Seed completed successfully.");
   await prisma.$disconnect();
 }

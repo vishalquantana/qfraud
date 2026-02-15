@@ -120,6 +120,7 @@ model Tenant {
   whiteLabelConfig WhiteLabelConfig?
   apiKeys              ApiKey[]
   webhookSubscriptions WebhookSubscription[]
+  complianceConfig     ComplianceConfig?
 
   @@map("tenants")
 }
@@ -360,4 +361,18 @@ model WhiteLabelConfig {
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@map("white_label_configs")
+}
+
+// ─── ComplianceConfig ─────────────────────────────────────
+
+model ComplianceConfig {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  retentionYears  Int      @default(5)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("compliance_configs")
 }

@@ -78,6 +78,9 @@
 - Professional license verification: `src/services/verification-professional-license.ts` — `verifyProfessionalLicense(submissionId)` checks all PROFESSIONAL_LICENSE documents against mock state board API; flags not found (CRITICAL), expired/suspended/revoked (CRITICAL), scope mismatch (HIGH) with category API_VERIFY
 - External API verification services: use `withRetry()` for external API calls; handle API failures gracefully (log + skip); use `findExtractedData<T>()` to get prior extraction results
 - Entity resolution: `src/services/resolution-entity.ts` — `resolveEntities(submissionId)` extracts entity identifiers from ACORD_125/ENTITY_DOC/COI docs, fuzzy-matches (Levenshtein) names/addresses, exact-matches EIN/phone across tenant submissions; category ENTITY_INTEL
+- Compliance config: `ComplianceConfig` model with unique tenantId, stores `retentionYears` (default 5); use `prisma.complianceConfig.findUnique({ where: { tenantId } })` to fetch tenant retention settings
+- Data retention: `src/services/data-retention.ts` — `deleteExpiredData(tenantId)` is a dry-run stub that logs what would be purged based on tenant retention config; `deleteExpiredDataAllTenants()` iterates all tenants
+- Fraud warning on submissions: `GET /api/submissions/:id/fraud-warning` extracts state code from ACORD_125/ENTITY_DOC extracted data and returns state-specific fraud warning text via `getStateFraudWarning(stateCode)`
 ---
 
 ## 2026-02-15 - US-009
@@ -995,4 +998,25 @@
   - Phase 2 failures don't block Phase 1 results — both phases use Promise.allSettled for isolated error handling
   - Risk score recalculation after Phase 2 ensures all indicators (Phase 1 + Phase 2) are included in the final score
   - Audit log completion entry now tracks phase1DetectionErrors and phase2DetectionErrors separately for better debugging
+---
+
+## 2026-02-15 - US-056
+- What was implemented: Compliance features — state-mandated fraud warning language on submission emails and portal confirmation page, configurable data retention per tenant, background job stub for expired data purge, compliance dashboard showing retention policy status
+- Files changed:
+  - prisma/schema.prisma (added ComplianceConfig model with tenantId unique constraint and retentionYears field; added reverse relation on Tenant)
+  - prisma/migrations/20260215000006_add_compliance_configs/migration.sql (new table creation SQL)
+  - prisma/seed.ts (added ComplianceConfig upsert with default 5-year retention for test tenant)
+  - src/services/notification.ts (added getStateFraudWarning import, stateCode to NotificationData, fraud warning block in SUBMISSION_RECEIVED email template)
+  - src/app/api/submissions/[id]/fraud-warning/route.ts (new: GET endpoint returning state-specific fraud warning based on extracted document data)
+  - src/app/portal/submissions/[id]/review/page.tsx (added fraud warning notice display above confirm button, fetches from fraud-warning API)
+  - src/app/api/analytics/compliance/route.ts (updated to fetch retentionYears from ComplianceConfig instead of hardcoded 5)
+  - src/services/data-retention.ts (new: deleteExpiredData stub that logs what would be purged, deleteExpiredDataAllTenants for cron job use)
+  - prd.json (marked US-056 as passes: true)
+- **Learnings for future iterations:**
+  - State fraud warnings already existed in `src/services/state-fraud-warnings.ts` from US-041 — reuse `getStateFraudWarning()` and `extractStateFromAddress()` rather than duplicating
+  - FraudWarning JSON config (AC #1) was already implemented as the STATE_FRAUD_WARNINGS object in state-fraud-warnings.ts — no need to create a separate JSON file
+  - For optional email template additions (like fraud warning), make the data field optional in NotificationData and use nullish coalescing (`data.stateCode ?? null`) for graceful degradation
+  - ComplianceConfig uses `@unique` on tenantId for 1:1 with Tenant, same pattern as WhiteLabelConfig
+  - The compliance dashboard already had data retention display from US-043 — just needed to make retentionYears configurable via ComplianceConfig instead of hardcoded
+  - Data retention stub uses `dryRun: true` flag in return type to make it explicit that no deletions occur in MVP
 ---

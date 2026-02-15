@@ -102,24 +102,29 @@ export const GET = withTenant(async (ctx) => {
       : 100;
 
   // ─── Data Retention Status ──────────────────────────────
-  const oldestSubmission = await prisma.submission.findFirst({
-    where: withTenantFilter(tenantId, {}),
-    orderBy: { createdAt: "asc" },
-    select: { createdAt: true },
-  });
+  const [oldestSubmission, newestSubmission, totalRecords, complianceConfig] =
+    await Promise.all([
+      prisma.submission.findFirst({
+        where: withTenantFilter(tenantId, {}),
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true },
+      }),
+      prisma.submission.findFirst({
+        where: withTenantFilter(tenantId, {}),
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
+      prisma.submission.count({
+        where: withTenantFilter(tenantId, {}),
+      }),
+      prisma.complianceConfig.findUnique({
+        where: { tenantId },
+        select: { retentionYears: true },
+      }),
+    ]);
 
-  const newestSubmission = await prisma.submission.findFirst({
-    where: withTenantFilter(tenantId, {}),
-    orderBy: { createdAt: "desc" },
-    select: { createdAt: true },
-  });
-
-  const totalRecords = await prisma.submission.count({
-    where: withTenantFilter(tenantId, {}),
-  });
-
-  // Default retention: 5 years
-  const retentionYears = 5;
+  // Use tenant-configured retention, default 5 years
+  const retentionYears = complianceConfig?.retentionYears ?? 5;
   const retentionCutoff = new Date(now);
   retentionCutoff.setFullYear(retentionCutoff.getFullYear() - retentionYears);
 

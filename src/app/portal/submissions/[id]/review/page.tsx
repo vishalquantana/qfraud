@@ -169,6 +169,7 @@ export default function ReviewPage() {
   const [confirming, setConfirming] = useState(false);
   const [updatingDocId, setUpdatingDocId] = useState<string | null>(null);
   const [reuploadingDocId, setReuploadingDocId] = useState<string | null>(null);
+  const [fraudWarning, setFraudWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchSubmission = useCallback(async () => {
@@ -191,6 +192,21 @@ export default function ReviewPage() {
   useEffect(() => {
     fetchSubmission();
   }, [fetchSubmission]);
+
+  useEffect(() => {
+    async function fetchFraudWarning() {
+      try {
+        const res = await fetch(`/api/submissions/${submissionId}/fraud-warning`);
+        if (res.ok) {
+          const json = await res.json();
+          setFraudWarning(json.data.warningText);
+        }
+      } catch {
+        // Non-critical - default warning will show via fallback
+      }
+    }
+    if (submissionId) fetchFraudWarning();
+  }, [submissionId]);
 
   async function handleTypeChange(docId: string, newType: string) {
     setUpdatingDocId(docId);
@@ -567,6 +583,35 @@ export default function ReviewPage() {
             <div>
               <p className="text-sm font-medium text-green-800">All documents look good</p>
               <p className="text-xs text-green-600">No data quality issues detected. You can confirm your submission.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fraud Warning Notice */}
+      {fraudWarning && (
+        <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
+          <div className="flex gap-3">
+            <svg
+              className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+              />
+            </svg>
+            <div>
+              <h3 className="text-sm font-semibold text-amber-800">
+                Fraud Warning Notice
+              </h3>
+              <p className="mt-1 text-sm leading-relaxed text-amber-700">
+                {fraudWarning}
+              </p>
             </div>
           </div>
         </div>
