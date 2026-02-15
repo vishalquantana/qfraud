@@ -902,7 +902,7 @@
         "Typecheck passes"
       ],
       "priority": 51,
-      "passes": false,
+      "passes": true,
       "notes": "GenAI detection is stub-ready for ML model. Template matching starts rule-based."
     },
     {

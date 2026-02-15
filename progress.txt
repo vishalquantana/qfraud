@@ -70,6 +70,8 @@
 - Entity verification: `src/services/verification-sos.ts` — `verifyEntity(submissionId)` with mock SOS API, retry logic, and 4 checks (not found, inactive, recent incorporation, virtual office address) with category ENTITY_INTEL
 - Image forensics: `src/services/forensics-image.ts` — `analyzeImage(documentId)` for per-image EXIF/ELA/copy-move checks; `analyzeSubmissionImages(submissionId)` for cross-photo timestamp analysis; category VISUAL_AI
 - exif-reader v2: takes raw EXIF Buffer (not whole JPEG) — must extract APP1 segment from JPEG first; returns typed GPSInfo, Photo (DateTimeOriginal as Date), Image tags
+- GenAI forgery detection: `src/services/detection-genai-forgery.ts` — `detectGenAIForgery(documentId)` stub returning ForgeryDetectionResult interface for ML model swap-in; `matchTemplate(documentId)` rule-based structural comparison against TEMPLATE_LIBRARY config; both create FraudIndicator with category VISUAL_AI
+- Template matching uses pdf-parse v2 `getInfo()` for page count and `getText()` for keyword matching; template features defined per DocumentType in TEMPLATE_LIBRARY constant
 ---
 
 ## 2026-02-15 - US-009
@@ -908,4 +910,19 @@
   - Timestamp cluster check requires ≥3 photos with valid EXIF timestamps; flags if all photos span <10 minutes (suggesting cursory/staged inspection)
   - Geocoding stub returns null — GPS vs address comparison requires a geocoding API (Google Maps, Mapbox) for production; the comparison logic and Haversine formula are fully implemented and ready
   - Category VISUAL_AI is already in the Prisma FraudIndicatorCategory enum — use it for all image forensics indicators
+---
+
+## 2026-02-15 - US-051
+- What was implemented: GenAI forgery detection stub service and rule-based template matching service
+- Files changed:
+  - src/services/detection-genai-forgery.ts (new: detectGenAIForgery stub + matchTemplate with TEMPLATE_LIBRARY)
+  - prd.json (marked US-051 as passes: true)
+- **Learnings for future iterations:**
+  - GenAI forgery detection uses a `ForgeryDetectionResult` interface: `{ isLikelyForged: boolean, confidence: number, indicators: string[] }` — designed for easy ML model swap-in
+  - The stub returns `{ isLikelyForged: false, confidence: 0.1, indicators: [] }` so it never triggers fraud indicators until a real ML model is integrated
+  - Template matching uses a TEMPLATE_LIBRARY constant mapping DocumentType → expected structural features (page count range, keywords, logo presence)
+  - Template matching checks: page count range, keyword match ratio (<50% = mismatch), ACORD branding presence, minimal text content
+  - pdf-parse v2 `getInfo()` returns `{ info, total, getDateNode() }` — `total` is the page count
+  - Template matching only works on PDF documents; non-PDF documents are skipped
+  - Both functions create FraudIndicator with category VISUAL_AI, matching the existing image forensics pattern
 ---
