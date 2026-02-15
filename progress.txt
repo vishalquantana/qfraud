@@ -655,3 +655,20 @@
   - `useSession()` from next-auth/react provides user role for conditional UI (score override button visibility)
   - Action modals: decline requires justification (enforced by API), request-info accepts details text, approve/refer-to-siu are confirmation-only
 ---
+
+## 2026-02-15 - US-037
+- What was implemented: Underwriter dashboard threshold configuration page at /dashboard/config/thresholds with global threshold sliders, per-LOB overrides, score distribution histogram, preview mode, and save confirmation dialog
+- Files changed:
+  - src/app/dashboard/config/thresholds/page.tsx (new: full threshold config page with sliders for auto-approve/escalate thresholds, SIU referral toggle, per-LOB override table with add/remove, score distribution histogram via Recharts with threshold reference lines, preview mode showing re-routing impact on last 30 days, save confirmation dialog with before/after summary)
+  - src/app/dashboard/config/page.tsx (replaced placeholder: config hub page with card links to thresholds, users, white-label, and API keys sub-pages)
+  - prd.json (marked US-037 as passes: true)
+- **Learnings for future iterations:**
+  - Recharts `ReferenceLine` on bar charts: use `x` prop with exact data key value to place vertical reference lines on category (X) axis; for score buckets the key is the range string like "20-30"
+  - Score distribution histogram: fetch submissions list and build client-side buckets (0-10, 10-20, ..., 90-100); color bars based on threshold zones (green < approve, yellow = review, red > escalate)
+  - Preview mode pattern: toggle checkbox enables/disables preview panel; fetches `/api/config/thresholds/preview` with proposed values; shows impact summary (total, changed count, distribution comparison) and affected submissions table
+  - Save confirmation dialog pattern: show before/after diff of changed values, warn about audit trail logging, require explicit confirmation
+  - Config hub page: use card grid with icon + title + description linking to sub-pages; good pattern for settings areas with multiple sections
+  - Slider inputs: HTML `<input type="range">` with `accent-*` for Tailwind color styling; display current value in a badge next to the label
+  - Toggle switch: use `<button role="switch" aria-checked>` with translate-x transition for accessible toggle UI
+  - Per-LOB overrides use available LOBs filtered by already-used ones to prevent duplicates
+---
