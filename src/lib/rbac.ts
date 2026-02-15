@@ -158,8 +158,21 @@ export function withTenant(handler: TenantScopedHandler) {
  */
 export function withRole(allowedRoles: string[], handler: TenantScopedHandler) {
   return withTenant(async (ctx, params) => {
-    // API key auth bypasses role checks (permissions are checked separately)
     if (ctx.auth.type === "apikey") {
+      const { permissions } = ctx.auth.apiKey;
+      // Wildcard permission grants full access
+      if (permissions.includes("*")) {
+        return handler(ctx, params);
+      }
+      // Check if any API key permission matches the allowed roles
+      const hasPermission = permissions.some((perm) =>
+        allowedRoles.some((role) => hasRole(perm, role))
+      );
+      if (!hasPermission) {
+        return forbiddenResponse(
+          `API key lacks required permission: ${allowedRoles.join(" or ")}`
+        );
+      }
       return handler(ctx, params);
     }
 

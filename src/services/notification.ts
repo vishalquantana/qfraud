@@ -3,6 +3,27 @@ import nodemailer from "nodemailer";
 import sgMail from "@sendgrid/mail";
 import { getStateFraudWarning } from "@/services/state-fraud-warnings";
 
+// ─── HTML Escaping & URL Sanitization ─────────────────────
+
+/** Escape HTML entities to prevent XSS in email templates. */
+function escapeHtml(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Sanitize a URL: only allow http/https protocols. Returns empty string for invalid URLs. */
+function sanitizeUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return "";
+}
+
 // ─── Types ─────────────────────────────────────────────────
 
 export type NotificationType =
@@ -129,27 +150,30 @@ function wrapInLayout(
   body: string,
   branding: WhiteLabelBranding
 ): string {
-  const logo = branding.logoUrl
-    ? `<img src="${branding.logoUrl}" alt="${branding.tenantName}" style="max-height:48px;margin-bottom:16px;" />`
-    : `<h2 style="color:${branding.primaryColor};margin:0 0 16px;">${branding.tenantName}</h2>`;
+  const safeLogoUrl = sanitizeUrl(branding.logoUrl);
+  const logo = safeLogoUrl
+    ? `<img src="${safeLogoUrl}" alt="${escapeHtml(branding.tenantName)}" style="max-height:48px;margin-bottom:16px;" />`
+    : `<h2 style="color:${escapeHtml(branding.primaryColor)};margin:0 0 16px;">${escapeHtml(branding.tenantName)}</h2>`;
 
   const footerLinks: string[] = [];
-  if (branding.termsUrl)
-    footerLinks.push(`<a href="${branding.termsUrl}" style="color:${branding.secondaryColor};">Terms of Use</a>`);
-  if (branding.privacyUrl)
-    footerLinks.push(`<a href="${branding.privacyUrl}" style="color:${branding.secondaryColor};">Privacy Policy</a>`);
+  const safeTermsUrl = sanitizeUrl(branding.termsUrl);
+  if (safeTermsUrl)
+    footerLinks.push(`<a href="${safeTermsUrl}" style="color:${escapeHtml(branding.secondaryColor)};">Terms of Use</a>`);
+  const safePrivacyUrl = sanitizeUrl(branding.privacyUrl);
+  if (safePrivacyUrl)
+    footerLinks.push(`<a href="${safePrivacyUrl}" style="color:${escapeHtml(branding.secondaryColor)};">Privacy Policy</a>`);
 
   const footerLinksHtml = footerLinks.length
     ? `<p style="margin:8px 0 0;">${footerLinks.join(" | ")}</p>`
     : "";
 
   const footerText = branding.footerText
-    ? `<p style="margin:0;">${branding.footerText}</p>`
+    ? `<p style="margin:0;">${escapeHtml(branding.footerText)}</p>`
     : "";
 
   const supportInfo =
     branding.supportEmail || branding.supportPhone
-      ? `<p style="margin:8px 0 0;">Contact us: ${[branding.supportEmail, branding.supportPhone].filter(Boolean).join(" | ")}</p>`
+      ? `<p style="margin:8px 0 0;">Contact us: ${[escapeHtml(branding.supportEmail), escapeHtml(branding.supportPhone)].filter(Boolean).join(" | ")}</p>`
       : "";
 
   return `<!DOCTYPE html>
@@ -190,27 +214,28 @@ function buildSubmissionReceived(
   data: NotificationData,
   branding: WhiteLabelBranding
 ): EmailContent {
-  const trackingLink = data.trackingUrl
-    ? `<p><a href="${data.trackingUrl}" style="display:inline-block;padding:12px 24px;background-color:${branding.primaryColor};color:#ffffff;text-decoration:none;border-radius:6px;">Track Your Submission</a></p>`
+  const safeTrackingUrl = sanitizeUrl(data.trackingUrl);
+  const trackingLink = safeTrackingUrl
+    ? `<p><a href="${safeTrackingUrl}" style="display:inline-block;padding:12px 24px;background-color:${escapeHtml(branding.primaryColor)};color:#ffffff;text-decoration:none;border-radius:6px;">Track Your Submission</a></p>`
     : "";
 
   const body = `
     <h1 style="color:#1e293b;font-size:20px;margin:0 0 16px;">Submission Received</h1>
     <p style="color:#475569;line-height:1.6;">Thank you for your submission. We have received your documents and will begin processing shortly.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.submissionId || "N/A"}</td></tr>
-      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${data.insuredName}</td></tr>` : ""}
-      ${data.lineOfBusiness ? `<tr><td style="padding:8px 0;color:#64748b;">Line of Business</td><td style="padding:8px 0;color:#1e293b;">${data.lineOfBusiness}</td></tr>` : ""}
+      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.submissionId) || "N/A"}</td></tr>
+      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.insuredName)}</td></tr>` : ""}
+      ${data.lineOfBusiness ? `<tr><td style="padding:8px 0;color:#64748b;">Line of Business</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.lineOfBusiness)}</td></tr>` : ""}
     </table>
     <p style="color:#475569;line-height:1.6;">You will receive updates as your submission is reviewed.</p>
     ${trackingLink}
     <div style="background-color:#f1f5f9;border:1px solid #cbd5e1;padding:16px;margin:24px 0 0;border-radius:6px;">
       <p style="margin:0 0 8px;color:#475569;font-weight:600;font-size:13px;">Fraud Warning Notice</p>
-      <p style="margin:0;color:#64748b;font-size:12px;line-height:1.5;">${getStateFraudWarning(data.stateCode ?? null)}</p>
+      <p style="margin:0;color:#64748b;font-size:12px;line-height:1.5;">${escapeHtml(getStateFraudWarning(data.stateCode ?? null))}</p>
     </div>`;
 
   return {
-    subject: `Submission Received - ${data.insuredName || data.submissionId || "New Submission"}`,
+    subject: `Submission Received - ${escapeHtml(data.insuredName) || escapeHtml(data.submissionId) || "New Submission"}`,
     html: wrapInLayout(body, branding),
   };
 }
@@ -223,13 +248,13 @@ function buildSubmissionApproved(
     <h1 style="color:#16a34a;font-size:20px;margin:0 0 16px;">Submission Approved</h1>
     <p style="color:#475569;line-height:1.6;">Your submission has been reviewed and approved.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.submissionId || "N/A"}</td></tr>
-      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${data.insuredName}</td></tr>` : ""}
+      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.submissionId) || "N/A"}</td></tr>
+      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.insuredName)}</td></tr>` : ""}
     </table>
     <p style="color:#475569;line-height:1.6;">Your assigned underwriter will follow up with next steps.</p>`;
 
   return {
-    subject: `Submission Approved - ${data.insuredName || data.submissionId || ""}`,
+    subject: `Submission Approved - ${escapeHtml(data.insuredName) || escapeHtml(data.submissionId) || ""}`,
     html: wrapInLayout(body, branding),
   };
 }
@@ -242,13 +267,13 @@ function buildSubmissionDeclined(
     <h1 style="color:#dc2626;font-size:20px;margin:0 0 16px;">Submission Declined</h1>
     <p style="color:#475569;line-height:1.6;">After careful review, we are unable to proceed with this submission at this time.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.submissionId || "N/A"}</td></tr>
-      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${data.insuredName}</td></tr>` : ""}
+      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.submissionId) || "N/A"}</td></tr>
+      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.insuredName)}</td></tr>` : ""}
     </table>
     <p style="color:#475569;line-height:1.6;">If you have questions, please contact your underwriter or our support team for further details.</p>`;
 
   return {
-    subject: `Submission Update - ${data.insuredName || data.submissionId || ""}`,
+    subject: `Submission Update - ${escapeHtml(data.insuredName) || escapeHtml(data.submissionId) || ""}`,
     html: wrapInLayout(body, branding),
   };
 }
@@ -260,27 +285,28 @@ function buildInfoNeeded(
   const details = data.infoNeededDetails
     ? `<div style="background-color:#fff7ed;border-left:4px solid #f97316;padding:12px 16px;margin:16px 0;border-radius:4px;">
         <p style="margin:0;color:#9a3412;font-weight:600;">Information Requested:</p>
-        <p style="margin:8px 0 0;color:#475569;">${data.infoNeededDetails}</p>
+        <p style="margin:8px 0 0;color:#475569;">${escapeHtml(data.infoNeededDetails)}</p>
       </div>`
     : "";
 
-  const trackingLink = data.trackingUrl
-    ? `<p><a href="${data.trackingUrl}" style="display:inline-block;padding:12px 24px;background-color:${branding.accentColor};color:#ffffff;text-decoration:none;border-radius:6px;">View Submission &amp; Upload Documents</a></p>`
+  const safeTrackingUrl = sanitizeUrl(data.trackingUrl);
+  const trackingLink = safeTrackingUrl
+    ? `<p><a href="${safeTrackingUrl}" style="display:inline-block;padding:12px 24px;background-color:${escapeHtml(branding.accentColor)};color:#ffffff;text-decoration:none;border-radius:6px;">View Submission &amp; Upload Documents</a></p>`
     : "";
 
   const body = `
     <h1 style="color:#ea580c;font-size:20px;margin:0 0 16px;">Additional Information Needed</h1>
     <p style="color:#475569;line-height:1.6;">We need additional information to continue processing your submission.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.submissionId || "N/A"}</td></tr>
-      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${data.insuredName}</td></tr>` : ""}
+      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.submissionId) || "N/A"}</td></tr>
+      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.insuredName)}</td></tr>` : ""}
     </table>
     ${details}
     <p style="color:#475569;line-height:1.6;">Please provide the requested information at your earliest convenience to avoid delays.</p>
     ${trackingLink}`;
 
   return {
-    subject: `Action Required: Additional Information Needed - ${data.insuredName || data.submissionId || ""}`,
+    subject: `Action Required: Additional Information Needed - ${escapeHtml(data.insuredName) || escapeHtml(data.submissionId) || ""}`,
     html: wrapInLayout(body, branding),
   };
 }
@@ -290,16 +316,16 @@ function buildEscalationNotice(
   branding: WhiteLabelBranding
 ): EmailContent {
   const body = `
-    <h1 style="color:${branding.primaryColor};font-size:20px;margin:0 0 16px;">Submission Under Review</h1>
+    <h1 style="color:${escapeHtml(branding.primaryColor)};font-size:20px;margin:0 0 16px;">Submission Under Review</h1>
     <p style="color:#475569;line-height:1.6;">Your submission is currently being reviewed by our underwriting team.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.submissionId || "N/A"}</td></tr>
-      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${data.insuredName}</td></tr>` : ""}
+      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.submissionId) || "N/A"}</td></tr>
+      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.insuredName)}</td></tr>` : ""}
     </table>
     <p style="color:#475569;line-height:1.6;">You will be notified once a decision has been made. No action is needed from you at this time.</p>`;
 
   return {
-    subject: `Submission Under Review - ${data.insuredName || data.submissionId || ""}`,
+    subject: `Submission Under Review - ${escapeHtml(data.insuredName) || escapeHtml(data.submissionId) || ""}`,
     html: wrapInLayout(body, branding),
   };
 }
@@ -308,20 +334,21 @@ function buildNewSubmissionForReview(
   data: NotificationData,
   branding: WhiteLabelBranding
 ): EmailContent {
+  const safeTrackingUrl = sanitizeUrl(data.trackingUrl);
   const body = `
-    <h1 style="color:${branding.primaryColor};font-size:20px;margin:0 0 16px;">New Submission for Review</h1>
+    <h1 style="color:${escapeHtml(branding.primaryColor)};font-size:20px;margin:0 0 16px;">New Submission for Review</h1>
     <p style="color:#475569;line-height:1.6;">A new submission has been assigned to you for review.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.submissionId || "N/A"}</td></tr>
-      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${data.insuredName}</td></tr>` : ""}
-      ${data.lineOfBusiness ? `<tr><td style="padding:8px 0;color:#64748b;">Line of Business</td><td style="padding:8px 0;color:#1e293b;">${data.lineOfBusiness}</td></tr>` : ""}
+      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.submissionId) || "N/A"}</td></tr>
+      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.insuredName)}</td></tr>` : ""}
+      ${data.lineOfBusiness ? `<tr><td style="padding:8px 0;color:#64748b;">Line of Business</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.lineOfBusiness)}</td></tr>` : ""}
       ${data.indicatorCount !== undefined ? `<tr><td style="padding:8px 0;color:#64748b;">Fraud Indicators</td><td style="padding:8px 0;color:#1e293b;">${data.indicatorCount} flagged</td></tr>` : ""}
-      ${data.severity ? `<tr><td style="padding:8px 0;color:#64748b;">Risk Severity</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.severity}</td></tr>` : ""}
+      ${data.severity ? `<tr><td style="padding:8px 0;color:#64748b;">Risk Severity</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.severity)}</td></tr>` : ""}
     </table>
-    ${data.trackingUrl ? `<p><a href="${data.trackingUrl}" style="display:inline-block;padding:12px 24px;background-color:${branding.primaryColor};color:#ffffff;text-decoration:none;border-radius:6px;">Review Submission</a></p>` : ""}`;
+    ${safeTrackingUrl ? `<p><a href="${safeTrackingUrl}" style="display:inline-block;padding:12px 24px;background-color:${escapeHtml(branding.primaryColor)};color:#ffffff;text-decoration:none;border-radius:6px;">Review Submission</a></p>` : ""}`;
 
   return {
-    subject: `New Submission for Review: ${data.insuredName || data.submissionId || ""} [${data.severity || ""}]`,
+    subject: `New Submission for Review: ${escapeHtml(data.insuredName) || escapeHtml(data.submissionId) || ""} [${escapeHtml(data.severity) || ""}]`,
     html: wrapInLayout(body, branding),
   };
 }
@@ -330,23 +357,24 @@ function buildSIUReferral(
   data: NotificationData,
   branding: WhiteLabelBranding
 ): EmailContent {
+  const safeTrackingUrl = sanitizeUrl(data.trackingUrl);
   const body = `
     <h1 style="color:#7c3aed;font-size:20px;margin:0 0 16px;">SIU Referral: Investigation Required</h1>
     <p style="color:#475569;line-height:1.6;">A submission has been referred to the Special Investigations Unit for further investigation.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.submissionId || "N/A"}</td></tr>
-      ${data.caseId ? `<tr><td style="padding:8px 0;color:#64748b;">SIU Case ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${data.caseId}</td></tr>` : ""}
-      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${data.insuredName}</td></tr>` : ""}
+      <tr><td style="padding:8px 0;color:#64748b;width:140px;">Submission ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.submissionId) || "N/A"}</td></tr>
+      ${data.caseId ? `<tr><td style="padding:8px 0;color:#64748b;">SIU Case ID</td><td style="padding:8px 0;color:#1e293b;font-weight:600;">${escapeHtml(data.caseId)}</td></tr>` : ""}
+      ${data.insuredName ? `<tr><td style="padding:8px 0;color:#64748b;">Insured Name</td><td style="padding:8px 0;color:#1e293b;">${escapeHtml(data.insuredName)}</td></tr>` : ""}
       ${data.indicatorCount !== undefined ? `<tr><td style="padding:8px 0;color:#64748b;">Fraud Indicators</td><td style="padding:8px 0;color:#dc2626;font-weight:600;">${data.indicatorCount} flagged</td></tr>` : ""}
-      ${data.severity ? `<tr><td style="padding:8px 0;color:#64748b;">Risk Severity</td><td style="padding:8px 0;color:#dc2626;font-weight:600;">${data.severity}</td></tr>` : ""}
+      ${data.severity ? `<tr><td style="padding:8px 0;color:#64748b;">Risk Severity</td><td style="padding:8px 0;color:#dc2626;font-weight:600;">${escapeHtml(data.severity)}</td></tr>` : ""}
     </table>
     <div style="background-color:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0;border-radius:4px;">
       <p style="margin:0;color:#991b1b;font-weight:600;">Priority: Immediate attention required</p>
     </div>
-    ${data.trackingUrl ? `<p><a href="${data.trackingUrl}" style="display:inline-block;padding:12px 24px;background-color:#7c3aed;color:#ffffff;text-decoration:none;border-radius:6px;">View SIU Case</a></p>` : ""}`;
+    ${safeTrackingUrl ? `<p><a href="${safeTrackingUrl}" style="display:inline-block;padding:12px 24px;background-color:#7c3aed;color:#ffffff;text-decoration:none;border-radius:6px;">View SIU Case</a></p>` : ""}`;
 
   return {
-    subject: `SIU Referral: ${data.insuredName || data.submissionId || ""} - Immediate Attention Required`,
+    subject: `SIU Referral: ${escapeHtml(data.insuredName) || escapeHtml(data.submissionId) || ""} - Immediate Attention Required`,
     html: wrapInLayout(body, branding),
   };
 }
