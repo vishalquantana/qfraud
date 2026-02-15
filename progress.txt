@@ -56,6 +56,7 @@
 - Score override API: PATCH `/api/submissions/:id/override-score` with `{ score, justification }` body — SENIOR_UNDERWRITER/ADMIN only, directly sets riskScore and recalculates severity
 - Risk report API returns ALL indicators (including overridden) with `isOverridden`, `overriddenBy`, `overrideJustification` fields; score breakdown uses only active indicators
 - Action bar pattern: sticky bottom-0 with `bg-white/95 backdrop-blur-sm` for semi-transparent footer with action buttons
+- User management API: `/api/config/users` (GET list + POST invite) and `/api/config/users/:id` (PATCH edit role/status), ADMIN-only via `withRole(["ADMIN"])`
 ---
 
 ## 2026-02-15 - US-009
@@ -671,4 +672,20 @@
   - Slider inputs: HTML `<input type="range">` with `accent-*` for Tailwind color styling; display current value in a badge next to the label
   - Toggle switch: use `<button role="switch" aria-checked>` with translate-x transition for accessible toggle UI
   - Per-LOB overrides use available LOBs filtered by already-used ones to prevent duplicates
+---
+
+## 2026-02-15 - US-038
+- What was implemented: User management page at /dashboard/config/users (ADMIN only) with user table, invite modal, and edit modal
+- Files changed:
+  - src/app/api/config/users/route.ts (new: GET for listing users with summary counts, POST for inviting new users with temp password generation, email notification, and audit logging)
+  - src/app/api/config/users/[id]/route.ts (new: PATCH for editing user role and active status, self-deactivation prevention, audit logging)
+  - src/app/dashboard/config/users/page.tsx (new: user management page with table view showing name, email, role badge, status, created date; invite user modal with email/name/role fields; edit user modal with role dropdown and active toggle; user count summary in header)
+  - prd.json (marked US-038 as passes: true)
+- **Learnings for future iterations:**
+  - User management API pattern: GET returns users + summary object with counts (total, active, activeUnderwriters) for the header display
+  - Self-deactivation prevention: check `authUser.id === targetUser.id` server-side in PATCH; disable toggle client-side when `session?.user?.email === user.email`
+  - Invite flow: generates temp password with `crypto.randomBytes(16)` + bcrypt hash; in production this would be replaced with a proper email invitation link with password reset
+  - Audit logging: uses `USER_LOGIN` action type as closest match since the AuditAction type doesn't have a USER_MANAGEMENT variant — future iteration should extend AuditAction
+  - Role colors: each role gets a distinct color for visual differentiation in the table (purple=Admin, blue=UW, indigo=Senior UW, red=SIU, amber=Compliance, green=Broker)
+  - Modal pattern: fixed inset-0 z-50 overlay with max-w-md centered dialog, consistent with threshold config save dialog
 ---
