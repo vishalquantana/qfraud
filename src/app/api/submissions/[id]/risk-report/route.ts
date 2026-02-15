@@ -126,21 +126,24 @@ export const GET = withRole(
       );
     }
 
-    // Fetch all non-overridden fraud indicators
+    // Fetch all fraud indicators (including overridden for UI display)
     const indicators = await prisma.fraudIndicator.findMany({
       where: withTenantFilter(tenantId, {
         submissionId: id,
-        isOverridden: false,
       }),
       include: {
         document: { select: { id: true, fileName: true, documentType: true } },
+        overriddenBy: { select: { id: true, name: true } },
       },
       orderBy: [{ severity: "asc" }, { createdAt: "desc" }],
     });
 
+    // Use only non-overridden indicators for score breakdown and counts
+    const activeIndicators = indicators.filter((i) => !i.isOverridden);
+
     // Calculate score breakdown by category
     const categoryBreakdown = ALL_CATEGORIES.map((cat) => {
-      const catIndicators = indicators.filter((i) => i.category === cat);
+      const catIndicators = activeIndicators.filter((i) => i.category === cat);
       const points = catIndicators.reduce(
         (sum, i) => sum + (SEVERITY_WEIGHTS[i.severity] ?? 0),
         0
@@ -153,17 +156,17 @@ export const GET = withRole(
       };
     }).filter((c) => c.count > 0);
 
-    // Count by severity
+    // Count by severity (active only)
     const indicatorCounts = {
-      critical: indicators.filter((i) => i.severity === "CRITICAL").length,
-      high: indicators.filter((i) => i.severity === "HIGH").length,
-      medium: indicators.filter((i) => i.severity === "MEDIUM").length,
-      low: indicators.filter((i) => i.severity === "LOW").length,
-      total: indicators.length,
+      critical: activeIndicators.filter((i) => i.severity === "CRITICAL").length,
+      high: activeIndicators.filter((i) => i.severity === "HIGH").length,
+      medium: activeIndicators.filter((i) => i.severity === "MEDIUM").length,
+      low: activeIndicators.filter((i) => i.severity === "LOW").length,
+      total: activeIndicators.length,
     };
 
-    // Generate explainability text
-    const explainability = generateExplainability(indicators);
+    // Generate explainability text (active only)
+    const explainability = generateExplainability(activeIndicators);
 
     // Check for prior submissions from same entity/broker
     const priorSubmissions = await prisma.submission.findMany({
@@ -209,6 +212,9 @@ export const GET = withRole(
           evidence: i.evidence,
           confidence: i.confidence,
           recommendedAction: i.recommendedAction,
+          isOverridden: i.isOverridden,
+          overriddenBy: i.overriddenBy,
+          overrideJustification: i.overrideJustification,
           document: i.document,
           createdAt: i.createdAt,
         })),
