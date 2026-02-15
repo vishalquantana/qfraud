@@ -60,6 +60,9 @@
 - PDF generation: use `pdfkit` for server-side PDF creation; wrap in Promise to collect stream chunks into Buffer; use `new Uint8Array(buffer)` for NextResponse body
 - SIU reports API: POST `/api/siu-cases/:id/reports` with `{ reportType }` body generates PDF, stores as evidence attachment, returns PDF download
 - State fraud warnings: `src/services/state-fraud-warnings.ts` with `getStateFraudWarning(stateCode)` for all 50 states + DC
+- Analytics tabs: Overview/Broker Quality/Compliance at `/dashboard/analytics` — tab-specific data fetching only loads data for active tab
+- CSV export: `downloadCSV(filename, headers, rows)` helper creates client-side Blob download — used on all analytics tables
+- Broker analytics API: GET `/api/analytics/brokers` with optional `brokerId` param for drill-down detail
 ---
 
 ## 2026-02-15 - US-009
@@ -764,4 +767,22 @@
   - Top indicators: use `prisma.fraudIndicator.groupBy({ by: ["indicatorName", "severity", "category"] })` with `_count` and `orderBy` for efficient aggregation
   - KPI card grid: `grid-cols-2 lg:grid-cols-3 xl:grid-cols-6` for responsive layout from 2 to 6 columns
   - Processing time calculation: use `updatedAt - createdAt` for completed submissions (APPROVED, DECLINED, REFERRED_TO_SIU)
+---
+
+## 2026-02-15 - US-043
+- What was implemented: Portfolio analytics: broker quality scores and compliance dashboard with CSV export
+- Files changed:
+  - src/app/api/analytics/brokers/route.ts (new: GET /api/analytics/brokers — broker quality leaderboard with per-broker aggregation, quality score computation, optional brokerId drill-down returning submissions/flagTypes/trend)
+  - src/app/api/analytics/compliance/route.ts (new: GET /api/analytics/compliance — antifraud plan checklist, audit trail completeness, SIU reporting rate, fraud warning compliance, data retention status, estimated savings calculation)
+  - src/app/dashboard/analytics/page.tsx (major rewrite: added tab navigation (Overview/Broker Quality/Compliance), broker leaderboard with click-to-drill-down detail view showing submission history + flag types + trend chart, compliance tab with estimated savings card + antifraud plan checklist + compliance meters + data retention status, Export CSV button on all data tables)
+  - prd.json (marked US-043 as passes: true)
+- **Learnings for future iterations:**
+  - Analytics page tab pattern: use `activeTab` state with tab-specific data fetching in `fetchData()` — only fetch data for the active tab to avoid unnecessary API calls
+  - Broker quality score formula: `cleanRate - (criticalCount * 5 penalty, max 30)` — penalizes brokers with frequent critical flags
+  - Broker drill-down: pass `brokerId` query param to the same API endpoint; API returns different response shape (detail vs leaderboard) based on presence of brokerId
+  - Compliance API: use `prisma.fraudIndicator.groupBy({ by: ["category"] })` to check which detection categories have been triggered (= implemented)
+  - Prisma enum typing: `FraudIndicatorCategory[]` and `SIUCaseStatus[]` need explicit array type casts for `{ in: [...] }` filter queries
+  - CSV export helper: `downloadCSV()` creates a Blob URL, triggers an anchor click, and revokes the URL — works client-side without server involvement
+  - Estimated savings: `criticalFlaggedCount * avgFraudLossAmount` with configurable average (default $75K)
+  - Compliance meters use color-coded progress bars: green (>=80%), yellow (>=50%), red (<50%)
 ---
