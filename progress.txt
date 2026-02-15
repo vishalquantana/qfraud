@@ -859,3 +859,18 @@
   - Retry wrapper with exponential backoff (3 attempts, 1s/2s/4s delays) for API resilience; graceful fallback to manual verification on total failure
   - Mature operations check requires ALL three conditions: incorporated <2 years AND at least one maturity indicator (year established mismatch, high revenue >$1M, many employees >20)
 ---
+
+## 2026-02-15 - US-048
+- What was implemented: OFAC SDN screening and broker license verification services
+- Files changed:
+  - src/services/verification-ofac-broker.ts (new: screenOFAC function with fuzzy name matching via Levenshtein distance against mock SDN list; verifyBrokerLicense function with mock NIPR API and 3 checks — not found, expired/suspended/revoked, disciplinary history)
+  - prd.json (marked US-048 as passes: true)
+- **Learnings for future iterations:**
+  - OFAC screening extracts ALL named entities/individuals from ACORD 125 (businessName, applicantName, dba), entity docs (entityName, registeredAgent, officers), and COI (insuredName, agentName) — deduplicates by uppercased name
+  - Fuzzy name matching uses Levenshtein distance with normalized similarity score (0-1); default threshold 0.85 balances false positives vs false negatives
+  - Mock OFAC SDN list uses keyword-triggered entries (e.g., "sanction test entity") for deterministic testing
+  - Broker info extraction cascades: COI agentName → submission submitter with BROKER role; state inferred from ACORD 125 physical/mailing address
+  - Mock NIPR API uses same keyword-based deterministic pattern as SOS mock (unlicensed → NOT_FOUND, expired → EXPIRED, suspended → SUSPENDED)
+  - Both services follow verification-sos.ts patterns: findExtractedData helper, extractStateFromAddress helper, withRetry wrapper, category ENTITY_INTEL
+  - Broker license checks are layered: NOT_FOUND (CRITICAL) → status check (CRITICAL) → disciplinary history (HIGH) — all three can trigger independently
+---
