@@ -719,7 +719,7 @@
         "Typecheck passes"
       ],
       "priority": 41,
-      "passes": false,
+      "passes": true,
       "notes": "Use @react-pdf/renderer or puppeteer for PDF generation."
     },
     {

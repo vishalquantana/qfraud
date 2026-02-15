@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 // ─── Types ──────────────────────────────────────────────
@@ -229,6 +229,11 @@ export default function SIUCaseDetailPage() {
   // Indicator filter
   const [indicatorFilter, setIndicatorFilter] = useState<"all" | "active" | "overridden">("all");
 
+  // Report generation
+  const [showReportDropdown, setShowReportDropdown] = useState(false);
+  const [reportGenerating, setReportGenerating] = useState<string | null>(null);
+  const reportDropdownRef = useRef<HTMLDivElement>(null);
+
   // ─── Fetch case detail ────────────────────────────────
 
   const fetchCase = useCallback(async () => {
@@ -251,6 +256,22 @@ export default function SIUCaseDetailPage() {
   useEffect(() => {
     fetchCase();
   }, [fetchCase]);
+
+  // Close report dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        reportDropdownRef.current &&
+        !reportDropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowReportDropdown(false);
+      }
+    }
+    if (showReportDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showReportDropdown]);
 
   // ─── Status Update Handler ────────────────────────────
 
@@ -328,6 +349,46 @@ export default function SIUCaseDetailPage() {
       }
     } finally {
       setEvidenceLoading(false);
+    }
+  }
+
+  // ─── Generate Report Handler ─────────────────────────
+
+  async function handleGenerateReport(reportType: string) {
+    setReportGenerating(reportType);
+    setShowReportDropdown(false);
+    try {
+      const res = await fetch(`/api/siu-cases/${caseId}/reports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportType }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to generate report");
+        return;
+      }
+
+      // Download the PDF
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const filenameMatch = disposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch?.[1] ?? `report-${reportType.toLowerCase()}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Refresh case data to show new evidence entry
+      setLoading(true);
+      fetchCase();
+    } finally {
+      setReportGenerating(null);
     }
   }
 
@@ -471,13 +532,73 @@ export default function SIUCaseDetailPage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => router.push("/dashboard/siu-cases")}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-          >
-            Back to Cases
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Generate Report Button */}
+            <div className="relative" ref={reportDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowReportDropdown(!showReportDropdown)}
+                disabled={reportGenerating !== null}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {reportGenerating ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    Generate Report
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+
+              {/* Report type dropdown */}
+              {showReportDropdown && (
+                <div className="absolute right-0 z-10 mt-1 w-72 rounded-lg border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-600 dark:bg-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateReport("DOI_FRAUD_REFERRAL")}
+                    className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    <div className="text-sm font-medium text-slate-900 dark:text-white">
+                      State DOI Fraud Referral
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      Formatted for state DOI submission with case details, fraud indicators, and evidence summary
+                    </div>
+                  </button>
+                  <div className="mx-4 border-t border-slate-100 dark:border-slate-700" />
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateReport("INVESTIGATION_SUMMARY")}
+                    className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    <div className="text-sm font-medium text-slate-900 dark:text-white">
+                      Internal Investigation Summary
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      Full case timeline, all indicators, evidence, and resolution for carrier audit
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/siu-cases")}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              Back to Cases
+            </button>
+          </div>
         </div>
       </div>
 
@@ -639,11 +760,28 @@ export default function SIUCaseDetailPage() {
                       <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
                         {ev.description}
                       </p>
-                      {ev.url && (
+                      {ev.url && ev.type === "report" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // For report evidence, re-generate and download
+                            const reportType = (ev as unknown as { reportType?: string }).reportType;
+                            if (reportType) {
+                              handleGenerateReport(reportType);
+                            }
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Download Report
+                        </button>
+                      ) : ev.url ? (
                         <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                           {ev.url}
                         </p>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>

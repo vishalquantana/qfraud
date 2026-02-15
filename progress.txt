@@ -57,6 +57,9 @@
 - Risk report API returns ALL indicators (including overridden) with `isOverridden`, `overriddenBy`, `overrideJustification` fields; score breakdown uses only active indicators
 - Action bar pattern: sticky bottom-0 with `bg-white/95 backdrop-blur-sm` for semi-transparent footer with action buttons
 - User management API: `/api/config/users` (GET list + POST invite) and `/api/config/users/:id` (PATCH edit role/status), ADMIN-only via `withRole(["ADMIN"])`
+- PDF generation: use `pdfkit` for server-side PDF creation; wrap in Promise to collect stream chunks into Buffer; use `new Uint8Array(buffer)` for NextResponse body
+- SIU reports API: POST `/api/siu-cases/:id/reports` with `{ reportType }` body generates PDF, stores as evidence attachment, returns PDF download
+- State fraud warnings: `src/services/state-fraud-warnings.ts` with `getStateFraudWarning(stateCode)` for all 50 states + DC
 ---
 
 ## 2026-02-15 - US-009
@@ -722,4 +725,25 @@
   - Resolution text is required for CONFIRMED_FRAUD and FALSE_POSITIVE but optional for INCONCLUSIVE
   - Notes displayed in reverse chronological order (newest first); notes panel supports markdown text (rendered as pre-wrap)
   - Evidence upload uses a URL/reference approach rather than direct file upload to S3 — matches the existing PATCH API which accepts type/url/description
+---
+
+## 2026-02-15 - US-041
+- What was implemented: SIU report generation with two report types — State DOI Fraud Referral and Internal Investigation Summary — as downloadable PDFs from the case detail page
+- Files changed:
+  - src/services/report-generation.ts (new: generateSIUReport function with DOI fraud referral and investigation summary PDF builders using pdfkit)
+  - src/services/state-fraud-warnings.ts (new: state-mandated fraud warning text for all 50 states + DC, with extraction helper for state code from address)
+  - src/app/api/siu-cases/[id]/reports/route.ts (new: POST /api/siu-cases/:id/reports — generates PDF, stores as evidence attachment on case, returns PDF download)
+  - src/app/dashboard/siu-cases/[id]/page.tsx (updated: added "Generate Report" dropdown button in case header with DOI Fraud Referral and Investigation Summary options, download handler, report-type evidence entries show download button)
+  - package.json (added pdfkit, @types/pdfkit)
+  - prd.json (marked US-041 as passes: true)
+- **Learnings for future iterations:**
+  - pdfkit uses streaming API — wrap in Promise with `doc.on("data"/"end"/"error")` to collect chunks into Buffer
+  - pdfkit built-in fonts: Helvetica, Helvetica-Bold, Courier, Times-Roman (no need to embed custom fonts for basic reports)
+  - For NextResponse with binary data, use `new Uint8Array(buffer)` instead of raw Buffer to avoid TS type error with BodyInit
+  - Prisma Json fields need `as unknown as T[]` double cast (not just `as T[]`) for TypeScript satisfaction
+  - Reports stored as evidence entries on the SIU case with type "report" and a `reportType` field for re-generation/download
+  - Click-outside dropdown pattern: `useRef` + `useEffect` with mousedown listener on document, check `ref.current.contains(target)`
+  - State fraud warnings vary significantly by state; fall back to a generic warning when state code cannot be determined
+  - DOI report sections: case info, subject info, risk assessment, detailed findings, evidence collected, resolution, fraud warning, certification
+  - Investigation summary sections: case overview, subject details, risk assessment, all indicators (including overridden), timeline, evidence inventory, notes, resolution
 ---
