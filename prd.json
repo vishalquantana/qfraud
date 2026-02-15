@@ -938,7 +938,7 @@
         "Typecheck passes"
       ],
       "priority": 53,
-      "passes": false,
+      "passes": true,
       "notes": "NHTSA VIN decoder is a free public API. License verification starts as mock."
     },
     {

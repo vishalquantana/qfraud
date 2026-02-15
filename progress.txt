@@ -74,6 +74,9 @@
 - Template matching uses pdf-parse v2 `getInfo()` for page count and `getText()` for keyword matching; template features defined per DocumentType in TEMPLATE_LIBRARY constant
 - Broker letter NLP: `src/services/analysis-broker-letter-nlp.ts` — `analyzeBrokerLetter(submissionId)` runs pressure, manipulation, concealment, and declination checks on BROKER_SUBMISSION documents with category NLP
 - NLP analysis pattern: keyword/regex pattern libraries (arrays of `{ pattern: RegExp, category: string }`) scanned with `scanForPatterns()` helper; match context extracted for evidence; confidence scales with match count
+- VIN decoder: `src/services/verification-vin.ts` — `decodeVIN(vin)` calls NHTSA public API, `validateFleetVINs(submissionId)` checks VIN mismatches (CRITICAL) and non-CDL drivers on commercial vehicles (HIGH) with category API_VERIFY
+- Professional license verification: `src/services/verification-professional-license.ts` — `verifyProfessionalLicense(submissionId)` checks all PROFESSIONAL_LICENSE documents against mock state board API; flags not found (CRITICAL), expired/suspended/revoked (CRITICAL), scope mismatch (HIGH) with category API_VERIFY
+- External API verification services: use `withRetry()` for external API calls; handle API failures gracefully (log + skip); use `findExtractedData<T>()` to get prior extraction results
 ---
 
 ## 2026-02-15 - US-009
@@ -943,4 +946,23 @@
   - `scanForPatterns()` deduplicates matched phrases and extracts surrounding context for evidence
   - Confidence scales with match count: `Math.min(baseConfidence + matchCount * 0.1, maxConfidence)`
   - All checks create FraudIndicator with category NLP — the first service to use this category
+---
+
+## 2026-02-15 - US-053
+- What was implemented: VIN decoder using NHTSA public API, fleet VIN validation service, and professional license verification service with mock state board API
+- Files changed:
+  - src/services/verification-vin.ts (new: `decodeVIN()` NHTSA API integration, `validateFleetVINs()` for fleet schedule VIN validation with mismatch and non-CDL driver checks)
+  - src/services/verification-professional-license.ts (new: `verifyProfessionalLicense()` with mock state board API, checks for not found, expired/suspended/revoked, and scope mismatch)
+  - prd.json (marked US-053 as passes: true)
+  - progress.txt (added progress entry and codebase patterns)
+- **Learnings for future iterations:**
+  - NHTSA VIN Decoder API is free and public: `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json` — no auth needed
+  - VIN must be exactly 17 chars; characters I, O, Q are excluded from VINs — strip them in validation
+  - NHTSA response fields: `ModelYear`, `Make`, `Model`, `VehicleType`, `BodyClass`, `GVWR` — all string values
+  - Commercial vehicle detection: check `VehicleType`, `BodyClass` for truck/bus/trailer keywords, or `GVWR` > 26,001 lbs (CDL threshold)
+  - CDL license classes: A, B, C — check for "CDL-A", "CDL-B", "CDL-C", "CLASS A", "CLASS B", "CLASS C"
+  - FleetScheduleExtractedData type defined in verification-vin.ts (not a separate extraction service yet) — future US should add extraction-fleet-schedule.ts
+  - ProfessionalLicenseExtractedData type defined in verification-professional-license.ts — future US should add extraction-professional-license.ts
+  - Both services use `findExtractedData<T>()` pattern — professional license version returns array (multiple docs possible), VIN version returns single
+  - Use `AbortSignal.timeout(10000)` for fetch timeout control instead of manual AbortController
 ---
