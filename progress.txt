@@ -49,6 +49,7 @@
 - Dashboard theme: use `useSyncExternalStore` for theme state (NOT `useState` + `useEffect` with `setState` — triggers `react-hooks/set-state-in-effect` lint error). Persisted in `localStorage` key `dashboard-theme`
 - Dashboard dark mode: add `dark:` variant classes to all dashboard components. Toggle via `document.documentElement.classList.toggle("dark")`
 - Dashboard role-based nav: `navItems` array with optional `roles` field; SIU Cases = SIU_INVESTIGATOR+ADMIN, Configuration = ADMIN, Audit Trail = ADMIN+COMPLIANCE_OFFICER
+- @dnd-kit: use `useDroppable` for columns + `useDraggable` for cards; `DragOverlay` for drag preview; `PointerSensor` with distance constraint to separate clicks from drags
 ---
 
 ## 2026-02-15 - US-009
@@ -589,4 +590,24 @@
   - Dashboard login page checks role after sign-in via `/api/auth/session` endpoint — blocks BROKER role from accessing dashboard
   - Sidebar is collapsible on desktop (icon-only mode with `w-16`) and uses slide-over overlay on mobile
   - Header shows subtle "Powered by Quantana Shield" branding alongside the tenant name
+---
+
+## 2026-02-15 - US-034
+- What was implemented: Underwriter dashboard triage board with kanban view, drag-and-drop status changes, filters, and bulk approve
+- Files changed:
+  - src/app/dashboard/triage/page.tsx (replaced placeholder: full kanban board with DndContext, column grouping, filters, bulk approve, decline justification modal)
+  - src/components/dashboard/triage/KanbanColumn.tsx (new: droppable kanban column with color-coded headers, count badges, drop zone highlighting)
+  - src/components/dashboard/triage/SubmissionCard.tsx (new: draggable submission card with risk score gauge, severity badge, indicator count, checkbox selection)
+  - package.json (added @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities)
+  - prd.json (marked US-034 as passes: true)
+- **Learnings for future iterations:**
+  - @dnd-kit uses `useDroppable` + `useDraggable` hooks — droppable zones are identified by `id` matching column IDs, draggable items use submission IDs
+  - `DragOverlay` renders a copy of the dragged card for smooth visual feedback; the original card is dimmed with `opacity-40`
+  - `PointerSensor` with `activationConstraint: { distance: 8 }` prevents accidental drags from clicks
+  - `COLUMNS` defined `as const` creates readonly tuple types — use `(c.statuses as readonly string[]).includes(status)` to avoid TS error when checking plain `string` against literal tuple
+  - Kanban column status mapping: NEW = PROCESSING + UNDER_REVIEW, IN_REVIEW = INFO_NEEDED, other columns map 1:1 to submission statuses
+  - Drag from one column to another triggers PATCH `/api/submissions/:id/status` with the appropriate action; decline requires justification via modal
+  - Indicator counts fetched per-submission via `/api/submissions/:id/indicators` in parallel — could be optimized with a batch endpoint in the future
+  - Bulk approve button only enables when LOW/CLEAN risk submissions are selected (per AC requirement)
+  - Risk score gauge uses SVG circle with `strokeDasharray`/`strokeDashoffset` for the progress arc
 ---
