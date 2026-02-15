@@ -43,6 +43,12 @@ export const GET = withRole(
       where.createdAt = createdAt;
     }
 
+    // Free-text search across details JSON
+    const search = url.searchParams.get("search");
+    if (search) {
+      where.details = { string_contains: search };
+    }
+
     const tenantWhere = withTenantFilter(tenantId, where);
 
     const [logs, total] = await Promise.all([
@@ -58,8 +64,19 @@ export const GET = withRole(
       prisma.auditLog.count({ where: tenantWhere }),
     ]);
 
+    // Fetch distinct users who appear in audit logs for filter dropdown
+    const distinctUsers = await prisma.auditLog.findMany({
+      where: withTenantFilter(tenantId),
+      select: { userId: true, user: { select: { id: true, name: true } } },
+      distinct: ["userId"],
+    });
+    const users = distinctUsers
+      .filter((d) => d.userId && d.user)
+      .map((d) => ({ id: d.user!.id, name: d.user!.name }));
+
     return NextResponse.json({
       data: logs,
+      users,
       pagination: {
         page,
         limit,

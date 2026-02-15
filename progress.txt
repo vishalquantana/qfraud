@@ -786,3 +786,19 @@
   - Estimated savings: `criticalFlaggedCount * avgFraudLossAmount` with configurable average (default $75K)
   - Compliance meters use color-coded progress bars: green (>=80%), yellow (>=50%), red (<50%)
 ---
+
+## 2026-02-15 - US-044
+- What was implemented: Audit trail viewer page at /dashboard/audit-trail with full filtering, search, expandable details, CSV export, and pagination
+- Files changed:
+  - src/app/dashboard/audit-trail/page.tsx (replaced placeholder: full audit trail page with table view, action type/user/date range/submission ID filters, free-text search across details JSON, expandable row details showing full JSON with structured rendering, CSV export, pagination with 50 entries per page, filter chips, empty state)
+  - src/app/api/audit-logs/route.ts (updated: added free-text search via `string_contains` on details JSON field, added distinct users list in response for filter dropdown)
+  - prd.json (marked US-044 as passes: true)
+- **Learnings for future iterations:**
+  - Prisma JSON field free-text search: use `{ string_contains: searchTerm }` filter on Json columns — works for substring matching within the serialized JSON
+  - Distinct users for filter dropdown: use `prisma.auditLog.findMany({ distinct: ["userId"], select: { userId: true, user: ... } })` to get unique users who appear in audit logs without needing a separate users endpoint
+  - Expandable table row pattern: use `<>` Fragment to render main `<tr>` + conditional expanded `<tr>` with `colSpan` for the detail panel; track `expandedId` state to toggle
+  - Structured JSON rendering: recursive `renderValue()` function handles null, boolean, number, string, array, and object types with appropriate color coding and indentation
+  - Filter chip pattern: small removable badges showing active filters with "Clear all" button; use `handleFilterChange()` wrapper to reset page to 1 on any filter change
+  - Pagination helper: `generatePageNumbers()` creates a compact page list with ellipsis (1 ... 4 5 6 ... 20) for large page counts
+  - Details summary: `summarizeDetails()` extracts key fields (reason, justification, status, action) for the truncated preview in the table row
+---
